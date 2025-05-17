@@ -5,6 +5,7 @@ from datetime import datetime, time
 import time as t
 from urllib.parse import quote
 
+# === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
@@ -52,9 +53,11 @@ def extract_media_name(url):
     except:
         return "[매체추출실패]"
 
+# === Streamlit UI ===
 st.title("📰 뉴스 수집기")
-st.markdown("`[단독]` 기사 전체와 선택 키워드 관련 **연합/뉴시스** 기사를 시간 범위 내에서 수집합니다.")
+st.markdown("`[단독]` 기사 전체와 선택한 키워드 관련 **연합/뉴시스 기사**를 시간 범위 내에서 수집합니다.")
 
+# 날짜 및 시간 선택
 selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
@@ -87,8 +90,10 @@ default_selection = [
 
 selected_keywords = st.multiselect("🗂️ 키워드 선택", all_keywords, default=default_selection)
 
+# === 실행 버튼 ===
 if st.button("✅ 뉴스 수집 시작"):
     total_count = 0
+
     with st.spinner("뉴스 수집 중..."):
 
         # === [단독] 기사 ===
@@ -109,7 +114,7 @@ if st.button("✅ 뉴스 수집 시작"):
 
             res = requests.get(url, headers=headers, params=params)
             if res.status_code != 200:
-                st.error(f"API 호출 실패: {res.status_code}")
+                st.error(f"[단독] API 호출 실패: {res.status_code}")
                 break
 
             items = res.json().get("items", [])
@@ -145,11 +150,14 @@ if st.button("✅ 뉴스 수집 시작"):
 
             start_index += 100
 
-        # === 키워드 기사 (연합/뉴시스) ===
+        # === 키워드 기사 (연합/뉴시스만) ===
         st.subheader("🔵 키워드 기사 (연합/뉴시스)")
         for keyword in selected_keywords:
-            encoded_query = quote(keyword)
+            # 쿼리를 큰따옴표로 감싸고 인코딩
+            query_string = f'"{keyword}"'
+            encoded_query = quote(query_string)
             start_index = 1
+
             while start_index <= 1000:
                 params = {
                     "query": encoded_query,
