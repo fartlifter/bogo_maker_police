@@ -163,7 +163,7 @@ if st.button("✅ 뉴스 수집 시작"):
             st.subheader("🔵 키워드 기사 (연합/뉴시스)")
             for start_index in range(1, 1001, 100):
                 params = {
-                    "query": "뉴스",
+                    "query": f'"{keyword}"',
                     "sort": "date",
                     "display": 100,
                     "start": start_index
