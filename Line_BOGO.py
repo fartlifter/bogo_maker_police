@@ -74,7 +74,8 @@ col1, col2 = st.columns(2)
 with col1:
     start_time = st.time_input("시작 시각", value=time(0, 0))
 with col2:
-    end_time = st.time_input("종료 시각", value=now.time())
+    # 🔽 microsecond 제거해서 수정 가능하게
+    end_time = st.time_input("종료 시각", value=now.time().replace(microsecond=0))
 
 start_dt = datetime.combine(selected_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 end_dt = datetime.combine(selected_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
