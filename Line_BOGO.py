@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, time
+from zoneinfo import ZoneInfo
 import time as t
 from collections import defaultdict
 
@@ -9,7 +10,6 @@ from collections import defaultdict
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
-# === 유틸 함수 ===
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
@@ -61,9 +61,10 @@ def safe_api_request(url, headers, params, max_retries=3):
 
 # === Streamlit UI ===
 st.title("📰 뉴스 수집기")
-st.markdown("✅ 기사 전체와 선택한 키워드 관련 **연합/뉴시스 기사**를 시간 범위 내에서 수집합니다.")
+st.markdown("✅ 기사 전체와 선택한 키워드 관련 **연합/뉴시스 기사**를 KST 기준 시간 범위 내에서 수집합니다.")
 
-now = datetime.now()
+# ✅ KST 기준 현재 시간
+now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.date()
 current_time = now.time()
 
@@ -74,9 +75,11 @@ with col1:
 with col2:
     end_time = st.time_input("종료 시각", value=current_time)
 
-start_datetime = datetime.combine(selected_date, start_time)
-end_datetime = datetime.combine(selected_date, end_time)
+# 시각 결합 후 tzinfo 제거 (비교용)
+start_datetime = datetime.combine(selected_date, start_time).replace(tzinfo=None)
+end_datetime = datetime.combine(selected_date, end_time).replace(tzinfo=None)
 
+# === 키워드 목록 ===
 all_keywords = [
     '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
     '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
@@ -92,7 +95,7 @@ all_keywords = [
 default_selection = all_keywords[:22]
 selected_keywords = st.multiselect("📂 키워드 선택", all_keywords, default=default_selection)
 
-# === 실행 버튼 ===
+# === 실행 ===
 if st.button("✅ 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
         headers = {
@@ -105,7 +108,7 @@ if st.button("✅ 뉴스 수집 시작"):
 
         for start_index in range(1, 1001, 100):
             params = {
-                "query": "뉴스",  # ← 핵심: 공통 키워드로 전체 기사 검색
+                "query": "뉴스",  # 전체 기사 호출
                 "sort": "date",
                 "display": 100,
                 "start": start_index
