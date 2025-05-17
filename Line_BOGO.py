@@ -1,9 +1,8 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-import pytz
-import time
+from datetime import datetime, time
+import time as t
 
 # === API 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -54,17 +53,23 @@ def extract_media_name(url):
     except:
         return "[매체추출실패]"
 
-# === Streamlit 앱 ===
-st.title("📰 [단독] 네이버 뉴스 수집기")
-st.markdown("시간 범위를 지정해 `[단독]` 기사를 수집하고 본문을 확인합니다.")
+# === Streamlit 앱 시작 ===
+st.title("📰 뉴스 수집기")
+st.markdown("지정한 시간 범위의 `[단독]` 뉴스를 수집하고 본문을 출력합니다.")
 
-# 시간 입력
+# 기본값: 오늘 날짜 기준 
+today = datetime.now()
+default_start = datetime.combine(today.date(), time(0, 0))
+default_end = datetime.combine(today.date(), time(0, 0))
+
+# 입력 받기
 col1, col2 = st.columns(2)
 with col1:
-    start_time = st.datetime_input("시작 시각", value=datetime(2025, 5, 17, 18, 0, tzinfo=pytz.timezone("Asia/Seoul")))
+    start_time = st.datetime_input("시작 시각", value=default_start)
 with col2:
-    end_time = st.datetime_input("종료 시각", value=datetime(2025, 5, 17, 19, 0, tzinfo=pytz.timezone("Asia/Seoul")))
+    end_time = st.datetime_input("종료 시각", value=default_end)
 
+# 수집 시작 버튼
 if st.button("✅ 기사 수집 시작"):
     start_index = 1
     keep_collecting = True
@@ -119,7 +124,7 @@ if st.button("✅ 기사 수집 시작"):
                 st.caption(pub_date_str)
                 st.write(f"- {body}")
 
-                time.sleep(0.5)
+                t.sleep(0.5)
 
             start_index += 100
 
