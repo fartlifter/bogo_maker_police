@@ -226,6 +226,6 @@ if st.button("✅ 뉴스 수집 시작"):
             # === 클립보드 복사용 텍스트 ===
             text_block = ""
             for row in all_articles:
-                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n- {row['본문']}\n\n"
+                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n-{row['본문']}\n\n"
 
             st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300)
