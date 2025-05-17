@@ -5,6 +5,8 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
 from collections import defaultdict
+import pandas as pd
+import io
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -80,26 +82,16 @@ with col2:
 start_dt = datetime.combine(selected_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 end_dt = datetime.combine(selected_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
-all_keywords = [
-    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
-    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
-    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회',
-    '경찰청', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원',
-    '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
-    '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대',
-    '세종대', '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
-    '신촌세브란스병원', '영등포', '양천', '구로', '강서', '남부지검', '남부지법',
-    '군인권센터', '여의도성모병원', '고대구로병원', '관악', '금천', '동작', '방배',
-    '서울대', '중앙대', '숭실대', '보라매병원'
-]
-default_selection = all_keywords[:22]
+all_keywords = ['종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉', '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대', '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회']
+default_selection = all_keywords[:20]
 selected_keywords = []
 if collect_keywords:
     selected_keywords = st.multiselect("📂 키워드 선택", all_keywords, default=default_selection)
 
+# === 실행 ===
 if st.button("✅ 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
-        status = st.status("🚦 수집 준비 중...", expanded=True)
+        status_text = st.empty()
         progress_bar = st.progress(0)
         headers = {
             "X-Naver-Client-Id": client_id,
@@ -107,6 +99,7 @@ if st.button("✅ 뉴스 수집 시작"):
         }
         seen_links = set()
         grouped = defaultdict(list)
+        all_articles = []
         total = 0
 
         keyword_loop_count = len(selected_keywords) * 10 if collect_keywords else 0
@@ -119,7 +112,7 @@ if st.button("✅ 뉴스 수집 시작"):
             for start_index in range(1, 1001, 100):
                 loop_counter += 1
                 progress_bar.progress(min(loop_counter / estimated_loops, 1.0))
-                status.update(label=f"🟡 [단독] 수집 중... ({total}건 수집됨)")
+                status_text.markdown(f"🟡 [단독] 수집 중... **{total}건 수집됨**")
                 params = {
                     "query": "[단독]",
                     "sort": "date",
@@ -148,11 +141,18 @@ if st.button("✅ 뉴스 수집 시작"):
                     if not body:
                         continue
                     media = extract_media_name(item.get("originallink", ""))
+                    all_articles.append({
+                        "키워드": "[단독]",
+                        "매체": media,
+                        "제목": title,
+                        "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                        "본문": body
+                    })
                     st.markdown(f"**△{media}/{title}**")
                     st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
                     st.write(f"- {body}")
                     total += 1
-                    status.update(label=f"🟡 [단독] 수집 중... ({total}건 수집됨)")
+                    status_text.markdown(f"🟡 [단독] 수집 중... **{total}건 수집됨**")
                     t.sleep(0.5)
 
         if collect_keywords:
@@ -161,7 +161,7 @@ if st.button("✅ 뉴스 수집 시작"):
                 for start_index in range(1, 1001, 100):
                     loop_counter += 1
                     progress_bar.progress(min(loop_counter / estimated_loops, 1.0))
-                    status.update(label=f"🔵 {keyword} 수집 중... ({total}건 수집됨)")
+                    status_text.markdown(f"🔵 `{keyword}` 수집 중... **{total}건 수집됨**")
                     params = {
                         "query": f'"{keyword}"',
                         "sort": "date",
@@ -196,18 +196,36 @@ if st.button("✅ 뉴스 수집 시작"):
                             "pubdate": pub_dt,
                             "body": body
                         })
+                        all_articles.append({
+                            "키워드": keyword,
+                            "매체": media,
+                            "제목": title,
+                            "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                            "본문": body
+                        })
                         total += 1
-                        status.update(label=f"🔵 {keyword} 수집 중... ({total}건 수집됨)")
+                        status_text.markdown(f"🔵 `{keyword}` 수집 중... **{total}건 수집됨**")
                         t.sleep(0.5)
 
         progress_bar.empty()
-        status.update(label=f"✅ 수집 완료: 총 {total}건", state="complete")
+        status_text.markdown(f"✅ 수집 완료: 총 **{total}건**")
         st.success(f"✅ 수집 완료: 총 {total}건")
 
-        if collect_keywords:
-            for kw, articles in grouped.items():
-                st.markdown(f"### 🔹 {kw} ({len(articles)}건)")
-                for a in articles:
-                    st.markdown(f"**△{a['media']}/{a['title']}**")
-                    st.caption(a['pubdate'].strftime("%Y-%m-%d %H:%M:%S"))
-                    st.write(f"- {a['body']}")
+        # === 엑셀 다운로드 ===
+        df = pd.DataFrame(all_articles)
+        if not df.empty:
+            excel_buffer = io.BytesIO()
+            df.to_excel(excel_buffer, index=False)
+            st.download_button(
+                label="📥 엑셀 다운로드",
+                data=excel_buffer.getvalue(),
+                file_name="뉴스_수집_결과.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+            # === 클립보드 복사용 텍스트 ===
+            text_block = ""
+            for row in all_articles:
+                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n- {row['본문']}\n\n"
+
+            st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300)
