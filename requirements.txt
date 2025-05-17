@@ -1,4 +1,6 @@
 streamlit
-requests
-beautifulsoup4
 pytz
+pandas
+openpyxl
+beautifulsoup4
+requests
