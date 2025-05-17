@@ -4,16 +4,18 @@ from bs4 import BeautifulSoup
 from datetime import datetime, time
 import time as t
 
-# === 인증 정보 ===
+# 인증 정보
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
+# 날짜 파싱
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
     except:
         return None
 
+# 본문 추출
 def extract_article_text(url):
     if not url:
         return None
@@ -27,6 +29,7 @@ def extract_article_text(url):
     except:
         return None
 
+# 매체명 추출
 def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
@@ -52,11 +55,19 @@ def extract_media_name(url):
     except:
         return "[매체추출실패]"
 
-# === Streamlit UI ===
+# API 요청 (재시도 포함)
+def safe_api_request(url, headers, params, max_retries=3):
+    for attempt in range(max_retries):
+        res = requests.get(url, headers=headers, params=params)
+        if res.status_code == 200:
+            return res
+        t.sleep(0.5)
+    return res
+
+# Streamlit UI
 st.title("📰 뉴스 수집기")
 st.markdown("`[단독]` 기사 전체와 선택한 키워드 관련 **연합/뉴시스 기사**를 시간 범위 내에서 수집합니다.")
 
-# 날짜 및 시간 선택
 selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
@@ -67,7 +78,6 @@ with col2:
 start_datetime = datetime.combine(selected_date, start_time)
 end_datetime = datetime.combine(selected_date, end_time)
 
-# 키워드 선택
 all_keywords = [
     '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
     '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
@@ -80,18 +90,13 @@ all_keywords = [
     '군인권센터', '여의도성모병원', '고대구로병원', '관악', '금천', '동작', '방배',
     '서울대', '중앙대', '숭실대', '보라매병원'
 ]
-
-default_selection = [
-    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
-    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
-    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
-]
-
+default_selection = all_keywords[:22]
 selected_keywords = st.multiselect("🗂️ 키워드 선택", all_keywords, default=default_selection)
 
-# === 실행 버튼 ===
+# 실행 버튼
 if st.button("✅ 뉴스 수집 시작"):
     total_count = 0
+    seen_links = set()
     url = "https://openapi.naver.com/v1/search/news.json"
     headers = {
         "X-Naver-Client-Id": client_id,
@@ -100,7 +105,7 @@ if st.button("✅ 뉴스 수집 시작"):
 
     with st.spinner("뉴스 수집 중..."):
 
-        # === [단독] 기사 수집 ===
+        # [단독] 기사
         st.subheader("🟡 [단독] 기사")
         start_index = 1
         while True:
@@ -111,9 +116,9 @@ if st.button("✅ 뉴스 수집 시작"):
                 "start": start_index
             }
 
-            res = requests.get(url, headers=headers, params=params)
+            res = safe_api_request(url, headers, params)
             if res.status_code != 200:
-                st.error(f"[단독] API 호출 실패: {res.status_code}")
+                st.warning(f"[단독] API 호출 실패: {res.status_code}")
                 break
 
             items = res.json().get("items", [])
@@ -136,6 +141,10 @@ if st.button("✅ 뉴스 수집 시작"):
                     continue
 
                 link = item.get("link")
+                if not link or link in seen_links:
+                    continue
+                seen_links.add(link)
+
                 body = extract_article_text(link)
                 if not body:
                     continue
@@ -149,23 +158,23 @@ if st.button("✅ 뉴스 수집 시작"):
 
             start_index += 100
 
-        # === 키워드 기사 수집 (연합/뉴시스만) ===
+        # 키워드 기사
         st.subheader("🔵 키워드 기사 (연합/뉴시스)")
         for keyword in selected_keywords:
-            query_string = f'"{keyword}"'
+            st.markdown(f"### 🔹 {keyword}")
             start_index = 1
 
             while start_index <= 1000:
                 params = {
-                    "query": query_string,  # ⚠️ 인코딩하지 않고 그대로 넣음
+                    "query": f'"{keyword}"',
                     "sort": "date",
                     "display": 100,
                     "start": start_index
                 }
 
-                res = requests.get(url, headers=headers, params=params)
+                res = safe_api_request(url, headers, params)
                 if res.status_code != 200:
-                    st.error(f"[{keyword}] API 호출 실패: {res.status_code}")
+                    st.warning(f"[{keyword}] API 호출 실패: {res.status_code}")
                     break
 
                 items = res.json().get("items", [])
@@ -188,6 +197,10 @@ if st.button("✅ 뉴스 수집 시작"):
                         continue
 
                     link = item.get("link")
+                    if not link or link in seen_links:
+                        continue
+                    seen_links.add(link)
+
                     body = extract_article_text(link)
                     if not body:
                         continue
@@ -201,4 +214,4 @@ if st.button("✅ 뉴스 수집 시작"):
 
                 start_index += 100
 
-    st.success(f"✅ 전체 수집 완료: 총 {total_count}건")
+    st.success(f"✅ 전체 수집 완료: 총 {total_count}건 수집됨")
