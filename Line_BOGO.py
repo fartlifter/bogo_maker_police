@@ -108,6 +108,8 @@ if st.button("✅ 기사 수집 시작"):
                 if not pub_date_dt:
                     continue
 
+                pub_date_dt = pub_date_dt.replace(tzinfo=None)  # <-- 중요: tz-aware 제거
+
                 if pub_date_dt < start_datetime:
                     keep_collecting = False
                     break
