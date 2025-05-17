@@ -15,19 +15,21 @@ def parse_pubdate(pubdate_str):
     except:
         return None
 
-# === 본문 추출 ===
+# === 본문 추출 함수 ===
 def extract_article_text(url):
+    if not url:
+        return None
     try:
         html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
         if html.status_code == 200:
             soup = BeautifulSoup(html.text, "html.parser")
             content_div = soup.find("div", id="newsct_article")
-            return content_div.get_text(separator="\n", strip=True) if content_div else "[본문 없음]"
-        return f"[요청 실패: {html.status_code}]"
-    except Exception as e:
-        return f"[예외 발생: {e}]"
+            return content_div.get_text(separator="\n", strip=True) if content_div else None
+        return None
+    except:
+        return None
 
-# === 매체명 추출 ===
+# === 매체명 추출 함수 ===
 def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
@@ -53,11 +55,11 @@ def extract_media_name(url):
     except:
         return "[매체추출실패]"
 
-# === UI 시작 ===
+# === Streamlit 앱 시작 ===
 st.title("📰 뉴스 수집기")
-st.markdown("날짜 및 시간 범위 내의 `[단독]` 기사 전체, 그리고 **선택한 키워드** 관련 '연합뉴스' 및 '뉴시스' 기사를 수집합니다.")
+st.markdown("`[단독]` 기사와 주요 키워드 관련 '연합/뉴시스' 기사를 시간 범위에 맞게 수집합니다.")
 
-# === 날짜 및 시간 입력 ===
+# 날짜 및 시간 입력
 selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
@@ -68,8 +70,8 @@ with col2:
 start_datetime = datetime.combine(selected_date, start_time)
 end_datetime = datetime.combine(selected_date, end_time)
 
-# === 키워드 선택 ===
-default_keywords = [
+# 키워드 선택
+all_keywords = [
     '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
     '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
     '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회',
@@ -88,15 +90,14 @@ default_selection = [
     '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
 ]
 
-selected_keywords = st.multiselect("🗂️ 키워드 선택", default_keywords, default=default_selection)
+selected_keywords = st.multiselect("🗂️ 키워드 선택", all_keywords, default=default_selection)
 
-# === 수집 버튼 ===
+# 수집 버튼
 if st.button("✅ 뉴스 수집 시작"):
     total_count = 0
-
     with st.spinner("뉴스 수집 중..."):
 
-        ### 1. [단독] 기사 ###
+        # === [단독] 기사 수집 ===
         st.subheader("🟡 [단독] 기사")
         start_index = 1
         while True:
@@ -136,25 +137,27 @@ if st.button("✅ 뉴스 수집 시작"):
                 if pub_date_dt >= end_datetime:
                     continue
 
-                media = extract_media_name(item.get("originallink", ""))
-                link = item["link"]
+                link = item.get("link")
                 body = extract_article_text(link)
-                st.markdown(f"**{media} / {title}**")
-                st.caption(item["pubDate"])
-                st.write(body)
+                if not body:
+                    continue
+
+                media = extract_media_name(item.get("originallink", ""))
+                st.markdown(f"**△{media}/{title}**")
+                st.caption(pub_date_dt.strftime("%Y-%m-%d %H:%M:%S"))
+                st.write(f"- {body}")
                 t.sleep(0.5)
                 total_count += 1
 
             start_index += 100
 
-        ### 2. 키워드 + 연합/뉴시스 기사 ###
+        # === 키워드별 수집 (연합/뉴시스) ===
         st.subheader("🔵 키워드 기사 (연합/뉴시스)")
-        if selected_keywords:
-            keyword_query = "|".join(selected_keywords)
+        for keyword in selected_keywords:
             start_index = 1
             while start_index <= 1000:
                 params = {
-                    "query": keyword_query,
+                    "query": keyword,
                     "sort": "date",
                     "display": 100,
                     "start": start_index
@@ -162,7 +165,7 @@ if st.button("✅ 뉴스 수집 시작"):
 
                 res = requests.get(url, headers=headers, params=params)
                 if res.status_code != 200:
-                    st.error(f"키워드 API 호출 실패: {res.status_code}")
+                    st.error(f"[{keyword}] API 호출 실패: {res.status_code}")
                     break
 
                 items = res.json().get("items", [])
@@ -184,12 +187,15 @@ if st.button("✅ 뉴스 수집 시작"):
                     if media not in ["연합", "뉴시스"]:
                         continue
 
-                    title = BeautifulSoup(item["title"], "html.parser").get_text()
-                    link = item["link"]
+                    link = item.get("link")
                     body = extract_article_text(link)
-                    st.markdown(f"**{media} / {title}**")
-                    st.caption(item["pubDate"])
-                    st.write(body)
+                    if not body:
+                        continue
+
+                    title = BeautifulSoup(item["title"], "html.parser").get_text()
+                    st.markdown(f"**△{media}/{title}**")
+                    st.caption(pub_date_dt.strftime("%Y-%m-%d %H:%M:%S"))
+                    st.write(f"- {body}")
                     t.sleep(0.5)
                     total_count += 1
 
