@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import time as t
 from collections import defaultdict
 
-# 인증 정보
+# === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
@@ -74,8 +74,9 @@ col1, col2 = st.columns(2)
 with col1:
     start_time = st.time_input("시작 시각", value=time(0, 0))
 with col2:
-    # 🔽 microsecond 제거해서 수정 가능하게
-    end_time = st.time_input("종료 시각", value=now.time().replace(microsecond=0))
+    # ✅ 수정 가능한 종료 시각 설정
+    default_end_time = time(now.hour, now.minute)
+    end_time = st.time_input("종료 시각", value=default_end_time)
 
 start_dt = datetime.combine(selected_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 end_dt = datetime.combine(selected_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
