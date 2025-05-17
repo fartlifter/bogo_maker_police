@@ -3,7 +3,6 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, time
 import time as t
-from urllib.parse import quote
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -93,18 +92,18 @@ selected_keywords = st.multiselect("🗂️ 키워드 선택", all_keywords, def
 # === 실행 버튼 ===
 if st.button("✅ 뉴스 수집 시작"):
     total_count = 0
+    url = "https://openapi.naver.com/v1/search/news.json"
+    headers = {
+        "X-Naver-Client-Id": client_id,
+        "X-Naver-Client-Secret": client_secret
+    }
 
     with st.spinner("뉴스 수집 중..."):
 
-        # === [단독] 기사 ===
+        # === [단독] 기사 수집 ===
         st.subheader("🟡 [단독] 기사")
         start_index = 1
         while True:
-            url = "https://openapi.naver.com/v1/search/news.json"
-            headers = {
-                "X-Naver-Client-Id": client_id,
-                "X-Naver-Client-Secret": client_secret
-            }
             params = {
                 "query": "[단독]",
                 "sort": "date",
@@ -150,17 +149,15 @@ if st.button("✅ 뉴스 수집 시작"):
 
             start_index += 100
 
-        # === 키워드 기사 (연합/뉴시스만) ===
+        # === 키워드 기사 수집 (연합/뉴시스만) ===
         st.subheader("🔵 키워드 기사 (연합/뉴시스)")
         for keyword in selected_keywords:
-            # 쿼리를 큰따옴표로 감싸고 인코딩
             query_string = f'"{keyword}"'
-            encoded_query = quote(query_string)
             start_index = 1
 
             while start_index <= 1000:
                 params = {
-                    "query": encoded_query,
+                    "query": query_string,  # ⚠️ 인코딩하지 않고 그대로 넣음
                     "sort": "date",
                     "display": 100,
                     "start": start_index
