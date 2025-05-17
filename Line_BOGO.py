@@ -74,7 +74,6 @@ col1, col2 = st.columns(2)
 with col1:
     start_time = st.time_input("시작 시각", value=time(0, 0))
 with col2:
-    # ✅ 수정 가능한 종료 시각 설정
     default_end_time = time(now.hour, now.minute)
     end_time = st.time_input("종료 시각", value=default_end_time)
 
@@ -98,9 +97,10 @@ selected_keywords = []
 if collect_keywords:
     selected_keywords = st.multiselect("📂 키워드 선택", all_keywords, default=default_selection)
 
-# === 실행 버튼 ===
 if st.button("✅ 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
+        status = st.status("🚦 수집 준비 중...", expanded=True)
+        progress_bar = st.progress(0)
         headers = {
             "X-Naver-Client-Id": client_id,
             "X-Naver-Client-Secret": client_secret
@@ -109,9 +109,17 @@ if st.button("✅ 뉴스 수집 시작"):
         grouped = defaultdict(list)
         total = 0
 
+        keyword_loop_count = len(selected_keywords) * 10 if collect_keywords else 0
+        dandok_loop_count = 10 if collect_dandok else 0
+        estimated_loops = keyword_loop_count + dandok_loop_count
+        loop_counter = 0
+
         if collect_dandok:
             st.subheader("🟡 [단독] 기사")
             for start_index in range(1, 1001, 100):
+                loop_counter += 1
+                progress_bar.progress(min(loop_counter / estimated_loops, 1.0))
+                status.update(label=f"🟡 [단독] 수집 중... ({total}건 수집됨)")
                 params = {
                     "query": "[단독]",
                     "sort": "date",
@@ -144,12 +152,16 @@ if st.button("✅ 뉴스 수집 시작"):
                     st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
                     st.write(f"- {body}")
                     total += 1
+                    status.update(label=f"🟡 [단독] 수집 중... ({total}건 수집됨)")
                     t.sleep(0.5)
 
         if collect_keywords:
             st.subheader("🔵 키워드 기사 (연합/뉴시스)")
             for keyword in selected_keywords:
                 for start_index in range(1, 1001, 100):
+                    loop_counter += 1
+                    progress_bar.progress(min(loop_counter / estimated_loops, 1.0))
+                    status.update(label=f"🔵 {keyword} 수집 중... ({total}건 수집됨)")
                     params = {
                         "query": f'"{keyword}"',
                         "sort": "date",
@@ -185,14 +197,17 @@ if st.button("✅ 뉴스 수집 시작"):
                             "body": body
                         })
                         total += 1
+                        status.update(label=f"🔵 {keyword} 수집 중... ({total}건 수집됨)")
                         t.sleep(0.5)
 
-    st.success(f"✅ 수집 완료: 총 {total}건")
+        progress_bar.empty()
+        status.update(label=f"✅ 수집 완료: 총 {total}건", state="complete")
+        st.success(f"✅ 수집 완료: 총 {total}건")
 
-    if collect_keywords:
-        for kw, articles in grouped.items():
-            st.markdown(f"### 🔹 {kw} ({len(articles)}건)")
-            for a in articles:
-                st.markdown(f"**△{a['media']}/{a['title']}**")
-                st.caption(a['pubdate'].strftime("%Y-%m-%d %H:%M:%S"))
-                st.write(f"- {a['body']}")
+        if collect_keywords:
+            for kw, articles in grouped.items():
+                st.markdown(f"### 🔹 {kw} ({len(articles)}건)")
+                for a in articles:
+                    st.markdown(f"**△{a['media']}/{a['title']}**")
+                    st.caption(a['pubdate'].strftime("%Y-%m-%d %H:%M:%S"))
+                    st.write(f"- {a['body']}")
