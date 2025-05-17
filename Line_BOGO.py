@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, time
 import time as t
 
-# === API 인증 정보 ===
+# === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
@@ -53,11 +53,11 @@ def extract_media_name(url):
     except:
         return "[매체추출실패]"
 
-# === Streamlit 앱 시작 ===
+# === UI 시작 ===
 st.title("📰 뉴스 수집기")
-st.markdown("지정한 날짜 및 시간 범위의 `[단독]` 뉴스를 수집하고 본문을 출력합니다.")
+st.markdown("날짜 및 시간 범위 내의 `[단독]` 기사 전체, 그리고 **선택한 키워드** 관련 '연합뉴스' 및 '뉴시스' 기사를 수집합니다.")
 
-# 날짜 및 시간 입력
+# === 날짜 및 시간 입력 ===
 selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
@@ -65,18 +65,41 @@ with col1:
 with col2:
     end_time = st.time_input("종료 시각", value=time(23, 59))
 
-# 결합하여 datetime 객체로
 start_datetime = datetime.combine(selected_date, start_time)
 end_datetime = datetime.combine(selected_date, end_time)
 
-# 수집 시작 버튼
-if st.button("✅ 기사 수집 시작"):
-    start_index = 1
-    keep_collecting = True
-    result_count = 0
+# === 키워드 선택 ===
+default_keywords = [
+    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
+    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
+    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회',
+    '경찰청', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원',
+    '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
+    '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대',
+    '세종대', '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
+    '신촌세브란스병원', '영등포', '양천', '구로', '강서', '남부지검', '남부지법',
+    '군인권센터', '여의도성모병원', '고대구로병원', '관악', '금천', '동작', '방배',
+    '서울대', '중앙대', '숭실대', '보라매병원'
+]
+
+default_selection = [
+    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
+    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
+    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
+]
+
+selected_keywords = st.multiselect("🗂️ 키워드 선택", default_keywords, default=default_selection)
+
+# === 수집 버튼 ===
+if st.button("✅ 뉴스 수집 시작"):
+    total_count = 0
 
     with st.spinner("뉴스 수집 중..."):
-        while keep_collecting:
+
+        ### 1. [단독] 기사 ###
+        st.subheader("🟡 [단독] 기사")
+        start_index = 1
+        while True:
             url = "https://openapi.naver.com/v1/search/news.json"
             headers = {
                 "X-Naver-Client-Id": client_id,
@@ -103,34 +126,73 @@ if st.button("✅ 기사 수집 시작"):
                 if "[단독]" not in title:
                     continue
 
-                pub_date_str = item["pubDate"]
-                pub_date_dt = parse_pubdate(pub_date_str)
+                pub_date_dt = parse_pubdate(item["pubDate"])
                 if not pub_date_dt:
                     continue
-
-                pub_date_dt = pub_date_dt.replace(tzinfo=None)  # <-- 중요: tz-aware 제거
+                pub_date_dt = pub_date_dt.replace(tzinfo=None)
 
                 if pub_date_dt < start_datetime:
-                    keep_collecting = False
                     break
-
                 if pub_date_dt >= end_datetime:
                     continue
 
                 media = extract_media_name(item.get("originallink", ""))
                 link = item["link"]
                 body = extract_article_text(link)
-                result_count += 1
-
-                st.markdown(f"### △{media}/{title}")
-                st.caption(pub_date_str)
-                st.write(f"- {body}")
-
+                st.markdown(f"**{media} / {title}**")
+                st.caption(item["pubDate"])
+                st.write(body)
                 t.sleep(0.5)
+                total_count += 1
 
             start_index += 100
 
-    if result_count == 0:
-        st.info("지정한 시간 범위에서 [단독] 기사를 찾을 수 없습니다.")
-    else:
-        st.success(f"✅ 수집 완료: 총 {result_count}건 기사 출력됨.")
+        ### 2. 키워드 + 연합/뉴시스 기사 ###
+        st.subheader("🔵 키워드 기사 (연합/뉴시스)")
+        if selected_keywords:
+            keyword_query = "|".join(selected_keywords)
+            start_index = 1
+            while start_index <= 1000:
+                params = {
+                    "query": keyword_query,
+                    "sort": "date",
+                    "display": 100,
+                    "start": start_index
+                }
+
+                res = requests.get(url, headers=headers, params=params)
+                if res.status_code != 200:
+                    st.error(f"키워드 API 호출 실패: {res.status_code}")
+                    break
+
+                items = res.json().get("items", [])
+                if not items:
+                    break
+
+                for item in items:
+                    pub_date_dt = parse_pubdate(item["pubDate"])
+                    if not pub_date_dt:
+                        continue
+                    pub_date_dt = pub_date_dt.replace(tzinfo=None)
+
+                    if pub_date_dt < start_datetime:
+                        break
+                    if pub_date_dt >= end_datetime:
+                        continue
+
+                    media = extract_media_name(item.get("originallink", ""))
+                    if media not in ["연합", "뉴시스"]:
+                        continue
+
+                    title = BeautifulSoup(item["title"], "html.parser").get_text()
+                    link = item["link"]
+                    body = extract_article_text(link)
+                    st.markdown(f"**{media} / {title}**")
+                    st.caption(item["pubDate"])
+                    st.write(body)
+                    t.sleep(0.5)
+                    total_count += 1
+
+                start_index += 100
+
+    st.success(f"✅ 전체 수집 완료: 총 {total_count}건")
