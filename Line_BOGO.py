@@ -2,31 +2,34 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, time
-from zoneinfo import ZoneInfo
 import time as t
-from collections import defaultdict
 
-# === 인증 정보 ===
+# 인증 정보
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
+# 날짜 파싱
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
     except:
         return None
 
+# 본문 추출
 def extract_article_text(url):
+    if not url:
+        return None
     try:
         html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
         if html.status_code == 200:
             soup = BeautifulSoup(html.text, "html.parser")
             content_div = soup.find("div", id="newsct_article")
             return content_div.get_text(separator="\n", strip=True) if content_div else None
+        return None
     except:
-        pass
-    return None
+        return None
 
+# 매체명 추출
 def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
@@ -39,6 +42,7 @@ def extract_media_name(url):
             media_key = parts[1]
         else:
             media_key = parts[0]
+
         media_mapping = {
             "chosun": "조선", "joongang": "중앙", "donga": "동아", "hani": "한겨레",
             "khan": "경향", "hankookilbo": "한국", "segye": "세계", "seoul": "서울",
@@ -49,39 +53,30 @@ def extract_media_name(url):
         }
         return media_mapping.get(media_key.lower(), media_key.upper())
     except:
-        return "[매체출수신패]"
+        return "[매체추출실패]"
 
+# API 요청 (재시도 포함)
 def safe_api_request(url, headers, params, max_retries=3):
-    for _ in range(max_retries):
+    for attempt in range(max_retries):
         res = requests.get(url, headers=headers, params=params)
         if res.status_code == 200:
             return res
         t.sleep(0.5)
     return res
 
-# === Streamlit UI ===
+# Streamlit UI
 st.title("📰 뉴스 수집기")
-st.markdown("✅ `[단독]` 기사와 `키워드 포함 기사`를 각각 선택할 수 있습니다. (KST 기준)")
+st.markdown("`[단독]` 기사 전체와 선택한 키워드 관련 **연합/뉴시스 기사**를 시간 범위 내에서 수집합니다.")
 
-collect_dandok = st.checkbox("\ud83d\udccc [\ub2e8\ub3c5] \uae30\uc0ac \uc218\uc9d1", value=True)
-collect_keywords = st.checkbox("\ud83d\udccc \ud0a4\uc6cc\ub4dc \ud3ec\ud568 \uae30\uc0ac \uc218\uc9d1", value=True)
-if not collect_dandok and not collect_keywords:
-    st.warning("하나 이상의 수집 항목을 선택하세요.")
-    st.stop()
-
-now = datetime.now(ZoneInfo("Asia/Seoul"))
-today = now.date()
-rounded_time = now.replace(second=0, microsecond=0).time()
-
-selected_date = st.date_input("날짜", value=today)
+selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
-    start_time = st.time_input("시작 시간", value=time(0, 0))
+    start_time = st.time_input("시작 시각", value=time(0, 0))
 with col2:
-    end_time = st.time_input("\uc885\ub8cc \uc2dc\uac04", value=rounded_time)
+    end_time = st.time_input("종료 시각", value=time(23, 59))
 
-start_datetime = datetime.combine(selected_date, start_time).replace(tzinfo=None)
-end_datetime = datetime.combine(selected_date, end_time).replace(tzinfo=None)
+start_datetime = datetime.combine(selected_date, start_time)
+end_datetime = datetime.combine(selected_date, end_time)
 
 all_keywords = [
     '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
@@ -96,113 +91,127 @@ all_keywords = [
     '서울대', '중앙대', '숭실대', '보라매병원'
 ]
 default_selection = all_keywords[:22]
+selected_keywords = st.multiselect("🗂️ 키워드 선택", all_keywords, default=default_selection)
 
-if collect_keywords:
-    selected_keywords = st.multiselect("\ud83d\udcc2 \ud0a4\uc6cc\ub4dc \uc120\ud0dd", all_keywords, default=default_selection)
+# 실행 버튼
+if st.button("✅ 뉴스 수집 시작"):
+    total_count = 0
+    seen_links = set()
+    url = "https://openapi.naver.com/v1/search/news.json"
+    headers = {
+        "X-Naver-Client-Id": client_id,
+        "X-Naver-Client-Secret": client_secret
+    }
 
-if st.button("✅ \ub274\uc2a4 \uc218\uc9d1 \uc2dc\uc791"):
-    with st.spinner("\ub274\uc2a4 \uc218\uc9d1 \uc911..."):
-        headers = {
-            "X-Naver-Client-Id": client_id,
-            "X-Naver-Client-Secret": client_secret
-        }
-        seen_links = set()
-        grouped = defaultdict(list)
-        total = 0
+    with st.spinner("뉴스 수집 중..."):
 
-        if collect_dandok:
-            st.subheader("🟡 [단독] 기사")
-            for start_index in range(1, 1001, 100):
+        # [단독] 기사
+        st.subheader("🟡 [단독] 기사")
+        start_index = 1
+        while True:
+            params = {
+                "query": "[단독]",
+                "sort": "date",
+                "display": 100,
+                "start": start_index
+            }
+
+            res = safe_api_request(url, headers, params)
+            if res.status_code != 200:
+                st.warning(f"[단독] API 호출 실패: {res.status_code}")
+                break
+
+            items = res.json().get("items", [])
+            if not items:
+                break
+
+            for item in items:
+                title = BeautifulSoup(item["title"], "html.parser").get_text()
+                if "[단독]" not in title:
+                    continue
+
+                pub_date_dt = parse_pubdate(item["pubDate"])
+                if not pub_date_dt:
+                    continue
+                pub_date_dt = pub_date_dt.replace(tzinfo=None)
+
+                if pub_date_dt < start_datetime:
+                    break
+                if pub_date_dt >= end_datetime:
+                    continue
+
+                link = item.get("link")
+                if not link or link in seen_links:
+                    continue
+                seen_links.add(link)
+
+                body = extract_article_text(link)
+                if not body:
+                    continue
+
+                media = extract_media_name(item.get("originallink", ""))
+                st.markdown(f"**△{media}/{title}**")
+                st.caption(pub_date_dt.strftime("%Y-%m-%d %H:%M:%S"))
+                st.write(f"- {body}")
+                t.sleep(0.5)
+                total_count += 1
+
+            start_index += 100
+
+        # 키워드 기사
+        st.subheader("🔵 키워드 기사 (연합/뉴시스)")
+        for keyword in selected_keywords:
+            st.markdown(f"### 🔹 {keyword}")
+            start_index = 1
+
+            while start_index <= 1000:
                 params = {
-                    "query": "[단독]",
+                    "query": f'"{keyword}"',
                     "sort": "date",
                     "display": 100,
                     "start": start_index
                 }
-                res = safe_api_request("https://openapi.naver.com/v1/search/news.json", headers, params)
+
+                res = safe_api_request(url, headers, params)
                 if res.status_code != 200:
-                    st.warning(f"[단독] API 호출 실패: {res.status_code}")
+                    st.warning(f"[{keyword}] API 호출 실패: {res.status_code}")
                     break
+
                 items = res.json().get("items", [])
                 if not items:
                     break
+
                 for item in items:
-                    title = BeautifulSoup(item["title"], "html.parser").get_text()
-                    if "[단독]" not in title:
-                        continue
-                    pub_date_dt = parse_pubdate(item.get("pubDate"))
+                    pub_date_dt = parse_pubdate(item["pubDate"])
                     if not pub_date_dt:
                         continue
                     pub_date_dt = pub_date_dt.replace(tzinfo=None)
-                    if not (start_datetime <= pub_date_dt < end_datetime):
+
+                    if pub_date_dt < start_datetime:
+                        break
+                    if pub_date_dt >= end_datetime:
                         continue
+
+                    media = extract_media_name(item.get("originallink", ""))
+                    if media not in ["연합", "뉴시스"]:
+                        continue
+
                     link = item.get("link")
                     if not link or link in seen_links:
                         continue
                     seen_links.add(link)
+
                     body = extract_article_text(link)
                     if not body:
                         continue
-                    media = extract_media_name(item.get("originallink", ""))
+
+                    title = BeautifulSoup(item["title"], "html.parser").get_text()
                     st.markdown(f"**△{media}/{title}**")
                     st.caption(pub_date_dt.strftime("%Y-%m-%d %H:%M:%S"))
                     st.write(f"- {body}")
-                    total += 1
                     t.sleep(0.5)
+                    total_count += 1
 
-        if collect_keywords:
-            st.subheader("🔵 키워드 기사 (연합/뉴시스)")
-            for keyword in selected_keywords:
-                st.markdown(f"### 🔹 {keyword}")
-                for start_index in range(1, 1001, 100):
-                    params = {
-                        "query": keyword,
-                        "sort": "date",
-                        "display": 100,
-                        "start": start_index
-                    }
-                    res = safe_api_request("https://openapi.naver.com/v1/search/news.json", headers, params)
-                    if res.status_code != 200:
-                        st.warning(f"[{keyword}] API 호출 실패: {res.status_code}")
-                        break
-                    items = res.json().get("items", [])
-                    if not items:
-                        break
-                    for item in items:
-                        pub_date_dt = parse_pubdate(item.get("pubDate"))
-                        if not pub_date_dt:
-                            continue
-                        pub_date_dt = pub_date_dt.replace(tzinfo=None)
-                        if not (start_datetime <= pub_date_dt < end_datetime):
-                            continue
-                        media = extract_media_name(item.get("originallink", ""))
-                        if media not in ["연합", "뉴시스"]:
-                            continue
-                        link = item.get("link")
-                        if not link or link in seen_links:
-                            continue
-                        seen_links.add(link)
-                        body = extract_article_text(link)
-                        if not body:
-                            continue
-                        title = BeautifulSoup(item["title"], "html.parser").get_text()
-                        grouped[keyword].append({
-                            "title": title,
-                            "media": media,
-                            "pubdate": pub_date_dt,
-                            "body": body
-                        })
-                        total += 1
-                        t.sleep(0.5)
+                start_index += 100
 
-    st.success(f"✅ 수집 완료: 총 {total}건의 기사에서 유효 데이터 추출됨")
-
-    if collect_keywords:
-        for kw in selected_keywords:
-            articles = grouped.get(kw, [])
-            if articles:
-                st.markdown(f"### 🔹 {kw} ({len(articles)}건)")
-                for a in articles:
-                    st.markdown(f"**△{a['media']}/{a['title']}**")
-                    st.caption(a['pubdate'].strftime("%Y-%m-%d %H:%M:%S"))
-                    st.write(f"- {a['body']}")
+    st.success(f"✅ 전체 수집 완료: 총 {total_count}건 수집됨")
