@@ -3,19 +3,17 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, time
 import time as t
+from urllib.parse import quote
 
-# === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
-# === 날짜 파싱 함수 ===
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
     except:
         return None
 
-# === 본문 추출 함수 ===
 def extract_article_text(url):
     if not url:
         return None
@@ -29,7 +27,6 @@ def extract_article_text(url):
     except:
         return None
 
-# === 매체명 추출 함수 ===
 def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
@@ -55,11 +52,9 @@ def extract_media_name(url):
     except:
         return "[매체추출실패]"
 
-# === Streamlit 앱 시작 ===
 st.title("📰 뉴스 수집기")
-st.markdown("`[단독]` 기사와 주요 키워드 관련 '연합/뉴시스' 기사를 시간 범위에 맞게 수집합니다.")
+st.markdown("`[단독]` 기사 전체와 선택 키워드 관련 **연합/뉴시스** 기사를 시간 범위 내에서 수집합니다.")
 
-# 날짜 및 시간 입력
 selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
@@ -92,12 +87,11 @@ default_selection = [
 
 selected_keywords = st.multiselect("🗂️ 키워드 선택", all_keywords, default=default_selection)
 
-# 수집 버튼
 if st.button("✅ 뉴스 수집 시작"):
     total_count = 0
     with st.spinner("뉴스 수집 중..."):
 
-        # === [단독] 기사 수집 ===
+        # === [단독] 기사 ===
         st.subheader("🟡 [단독] 기사")
         start_index = 1
         while True:
@@ -151,13 +145,14 @@ if st.button("✅ 뉴스 수집 시작"):
 
             start_index += 100
 
-        # === 키워드별 수집 (연합/뉴시스) ===
+        # === 키워드 기사 (연합/뉴시스) ===
         st.subheader("🔵 키워드 기사 (연합/뉴시스)")
         for keyword in selected_keywords:
+            encoded_query = quote(keyword)
             start_index = 1
             while start_index <= 1000:
                 params = {
-                    "query": keyword,
+                    "query": encoded_query,
                     "sort": "date",
                     "display": 100,
                     "start": start_index
