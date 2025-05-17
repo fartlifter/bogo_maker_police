@@ -74,14 +74,14 @@ if not collect_dandok and not collect_keywords:
 # ✅ 날짜/시간 (KST 기준)
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.date()
-current_time = now.time()
+rounded_time = now.replace(second=0, microsecond=0).time()  # ← 핵심
 
 selected_date = st.date_input("날짜", value=today)
 col1, col2 = st.columns(2)
 with col1:
     start_time = st.time_input("시작 시각", value=time(0, 0))
 with col2:
-    end_time = st.time_input("종료 시각", value=current_time)
+    end_time = st.time_input("종료 시각", value=rounded_time)
 
 start_datetime = datetime.combine(selected_date, start_time).replace(tzinfo=None)
 end_datetime = datetime.combine(selected_date, end_time).replace(tzinfo=None)
