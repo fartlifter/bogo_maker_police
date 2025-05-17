@@ -55,19 +55,19 @@ def extract_media_name(url):
 
 # === Streamlit 앱 시작 ===
 st.title("📰 뉴스 수집기")
-st.markdown("지정한 시간 범위의 `[단독]` 뉴스를 수집하고 본문을 출력합니다.")
+st.markdown("지정한 날짜 및 시간 범위의 `[단독]` 뉴스를 수집하고 본문을 출력합니다.")
 
-# 기본값: 오늘 날짜 기준 
-today = datetime.now()
-default_start = datetime.combine(today.date(), time(0, 0))
-default_end = datetime.combine(today.date(), time(0, 0))
-
-# 입력 받기
+# 날짜 및 시간 입력
+selected_date = st.date_input("날짜", value=datetime.today())
 col1, col2 = st.columns(2)
 with col1:
-    start_time = st.datetime_input("시작 시각", value=default_start)
+    start_time = st.time_input("시작 시각", value=time(0, 0))
 with col2:
-    end_time = st.datetime_input("종료 시각", value=default_end)
+    end_time = st.time_input("종료 시각", value=time(23, 59))
+
+# 결합하여 datetime 객체로
+start_datetime = datetime.combine(selected_date, start_time)
+end_datetime = datetime.combine(selected_date, end_time)
 
 # 수집 시작 버튼
 if st.button("✅ 기사 수집 시작"):
@@ -108,11 +108,11 @@ if st.button("✅ 기사 수집 시작"):
                 if not pub_date_dt:
                     continue
 
-                if pub_date_dt < start_time:
+                if pub_date_dt < start_datetime:
                     keep_collecting = False
                     break
 
-                if pub_date_dt >= end_time:
+                if pub_date_dt >= end_datetime:
                     continue
 
                 media = extract_media_name(item.get("originallink", ""))
