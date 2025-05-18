@@ -68,19 +68,19 @@ if not collect_dandok and not collect_keywords:
     st.warning("하나 이상의 수집 항목을 선택해야 합니다.")
     st.stop()
 
+# 날짜 및 시간 설정
 now = datetime.now(ZoneInfo("Asia/Seoul"))
-today = now.date()
-
-selected_date = st.date_input("날짜", value=today)
 col1, col2 = st.columns(2)
 with col1:
-    start_time = st.time_input("시작 시각", value=time(0, 0))
+    start_dt = st.datetime_input(
+        "시작 시각", 
+        value=datetime.combine(now.date(), time(0, 0)).replace(tzinfo=ZoneInfo("Asia/Seoul"))
+    )
 with col2:
-    default_end_time = time(now.hour, now.minute)
-    end_time = st.time_input("종료 시각", value=default_end_time)
-
-start_dt = datetime.combine(selected_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
-end_dt = datetime.combine(selected_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
+    end_dt = st.datetime_input(
+        "종료 시각", 
+        value=now
+    )
 
 # === 키워드 목록 및 기본 선택 ===
 all_keywords = [
