@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
-from collections import defaultdict
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -158,11 +157,13 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                     "제목": title,
                     "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
                     "본문": body,
-                    "필터일치": ", ".join(matched_keywords)
+                    "필터일치": ", ".join(matched_keywords),
+                    "링크": link
                 })
 
                 st.markdown(f"**△{media}/{title}**")
                 st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
+                st.caption(link)
                 if matched_keywords:
                     st.write(f"**일치 키워드:** {', '.join(matched_keywords)}")
                 st.markdown(f"- {highlighted_body}", unsafe_allow_html=True)
@@ -175,11 +176,10 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         status_text.markdown(f"✅ 수집 완료: 총 **{total}건**")
         st.success(f"✅ 수집 완료: 총 {total}건")
 
-        # ✅ 복사용 텍스트 출력
         if all_articles:
             text_block = ""
             for row in all_articles:
-                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n"
+                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n{row['링크']}\n"
                 if row['필터일치']:
                     text_block += f"[일치 키워드: {row['필터일치']}]\n"
                 text_block += f"- {row['본문']}\n\n"
