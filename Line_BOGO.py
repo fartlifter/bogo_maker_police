@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
+import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -17,7 +19,9 @@ def parse_pubdate(pubdate_str):
 
 def extract_article_text(url):
     try:
-        html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        if "n.news.naver.com" not in url:
+            return None
+        html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
         if html.status_code == 200:
             soup = BeautifulSoup(html.text, "html.parser")
             content_div = soup.find("div", id="newsct_article")
@@ -49,11 +53,48 @@ def extract_media_name(url):
 
 def safe_api_request(url, headers, params, max_retries=3):
     for _ in range(max_retries):
-        res = requests.get(url, headers=headers, params=params)
-        if res.status_code == 200:
-            return res
-        t.sleep(0.5)
+        try:
+            res = requests.get(url, headers=headers, params=params, timeout=5)
+            if res.status_code == 200:
+                return res
+            t.sleep(0.5)
+        except:
+            t.sleep(0.5)
     return res
+
+def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filter):
+    title = BeautifulSoup(item["title"], "html.parser").get_text()
+    if "[단독]" not in title:
+        return None
+    pub_dt = parse_pubdate(item.get("pubDate"))
+    if not pub_dt or not (start_dt <= pub_dt <= end_dt):
+        return None
+    link = item.get("link")
+    if not link or "n.news.naver.com" not in link:
+        return None
+    body = extract_article_text(link)
+    if not body:
+        return None
+    matched_keywords = []
+    if use_keyword_filter and selected_keywords:
+        matched_keywords = [kw for kw in selected_keywords if kw in body]
+        if not matched_keywords:
+            return None
+    highlighted_body = body
+    for kw in matched_keywords:
+        highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
+    media = extract_media_name(item.get("originallink", ""))
+    return {
+        "키워드": "[단독]",
+        "매체": media,
+        "제목": title,
+        "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "본문": body,
+        "필터일치": ", ".join(matched_keywords),
+        "링크": link,
+        "하이라이트": highlighted_body,
+        "pub_dt": pub_dt
+    }
 
 # === 키워드 목록 ===
 all_keywords = [
@@ -123,52 +164,25 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             items = res.json().get("items", [])
             if not items:
                 break
-            for item in items:
-                title = BeautifulSoup(item["title"], "html.parser").get_text()
-                if "[단독]" not in title:
-                    continue
-                pub_dt = parse_pubdate(item.get("pubDate"))
-                if not pub_dt or not (start_dt <= pub_dt <= end_dt):
-                    continue
-                link = item.get("link")
-                if not link or link in seen_links:
-                    continue
-                seen_links.add(link)
-                body = extract_article_text(link)
-                if not body:
-                    continue
 
-                matched_keywords = []
-                if use_keyword_filter and selected_keywords:
-                    matched_keywords = [kw for kw in selected_keywords if kw in body]
-                    if not matched_keywords:
-                        continue
-
-                highlighted_body = body
-                for kw in matched_keywords:
-                    highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
-
-                media = extract_media_name(item.get("originallink", ""))
-                all_articles.append({
-                    "키워드": "[단독]",
-                    "매체": media,
-                    "제목": title,
-                    "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "본문": body,
-                    "필터일치": ", ".join(matched_keywords),
-                    "링크": link
-                })
-
-                st.markdown(f"**△{media}/{title}**")
-                st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
-                st.markdown(f"🔗 [원문 보기]({link})")
-                if matched_keywords:
-                    st.write(f"**일치 키워드:** {', '.join(matched_keywords)}")
-                st.markdown(f"- {highlighted_body}", unsafe_allow_html=True)
-
-                total += 1
-                status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
-                t.sleep(0.5)
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [
+                    executor.submit(fetch_and_filter, item, start_dt, end_dt, selected_keywords, use_keyword_filter)
+                    for item in items
+                ]
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result and result["링크"] not in seen_links:
+                        seen_links.add(result["링크"])
+                        all_articles.append(result)
+                        st.markdown(f"**△{result['매체']}/{result['제목']}**")
+                        st.caption(result["날짜"])
+                        st.markdown(f"🔗 [원문 보기]({result['링크']})")
+                        if result["필터일치"]:
+                            st.write(f"**일치 키워드:** {result['필터일치']}")
+                        st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
+                        total += 1
+                        status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
 
         progress_bar.empty()
         status_text.markdown(f"✅ 수집 완료: 총 **{total}건**")
@@ -177,12 +191,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                # 정규표현식으로 [단독] 또는 ⓧ단독 등 유사 패턴 제거
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n"
-                text_block += f"- {row['본문']}\n\n"
-        
+                text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n- {row['본문']}\n\n"
             st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300, key="copy_area")
             st.code(text_block.strip(), language="markdown")
             st.caption("위 내용을 복사해서 사용하세요.")
-
