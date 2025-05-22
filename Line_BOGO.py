@@ -5,7 +5,6 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
 from collections import defaultdict
-import pandas as pd
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -141,20 +140,33 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                 body = extract_article_text(link)
                 if not body:
                     continue
+
+                matched_keywords = []
                 if use_keyword_filter and selected_keywords:
-                    if not any(keyword in body for keyword in selected_keywords):
+                    matched_keywords = [kw for kw in selected_keywords if kw in body]
+                    if not matched_keywords:
                         continue
+
+                highlighted_body = body
+                for kw in matched_keywords:
+                    highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
+
                 media = extract_media_name(item.get("originallink", ""))
                 all_articles.append({
                     "키워드": "[단독]",
                     "매체": media,
                     "제목": title,
                     "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "본문": body
+                    "본문": body,
+                    "필터일치": ", ".join(matched_keywords)
                 })
+
                 st.markdown(f"**△{media}/{title}**")
                 st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
-                st.write(f"- {body}")
+                if matched_keywords:
+                    st.write(f"**일치 키워드:** {', '.join(matched_keywords)}")
+                st.markdown(f"- {highlighted_body}", unsafe_allow_html=True)
+
                 total += 1
                 status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
                 t.sleep(0.5)
@@ -163,12 +175,15 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         status_text.markdown(f"✅ 수집 완료: 총 **{total}건**")
         st.success(f"✅ 수집 완료: 총 {total}건")
 
-        # ✅ 복사용 텍스트
+        # ✅ 복사용 텍스트 출력
         if all_articles:
             text_block = ""
             for row in all_articles:
-                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n-{row['본문']}\n\n"
+                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n"
+                if row['필터일치']:
+                    text_block += f"[일치 키워드: {row['필터일치']}]\n"
+                text_block += f"- {row['본문']}\n\n"
 
             st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300, key="copy_area")
             st.code(text_block.strip(), language="markdown")
-            st.caption("전체 기사를 복사하려면 위 내용을 선택해 복사하세요.")
+            st.caption("위 내용을 복사해서 사용하세요.")
