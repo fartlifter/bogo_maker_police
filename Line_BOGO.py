@@ -41,7 +41,7 @@ def extract_media_name(url):
             "kmib": "국민", "munhwa": "문화", "kbs": "KBS", "sbs": "SBS",
             "imnews": "MBC", "jtbc": "JTBC", "ichannela": "채널A", "tvchosun": "TV조선",
             "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
-            "newsis": "뉴시스", "yna": "연합", "weekly": "주간조선", "mt": "머투"
+            "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선"
         }
         return media_mapping.get(media_key.lower(), media_key.upper())
     except:
@@ -177,11 +177,13 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                clean_title = row['제목'].replace("[단독]", "").strip()
+                # 정규표현식으로 [단독] 또는 ⓧ단독 등 유사 패턴 제거
+                clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n"
                 text_block += f"- {row['본문']}\n\n"
         
             st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300, key="copy_area")
             st.code(text_block.strip(), language="markdown")
             st.caption("위 내용을 복사해서 사용하세요.")
+
 
