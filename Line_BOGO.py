@@ -69,12 +69,6 @@ all_keywords = [
     '서울대', '중앙대', '숭실대', '보라매병원'
 ]
 
-default_selection = [
-    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
-    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
-    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
-]
-
 # === UI ===
 st.title("📰 [단독] 뉴스 수집기")
 st.markdown("✅ `[단독] 기사`를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
@@ -93,10 +87,14 @@ with col2:
     end_time = st.time_input("종료 시각", value=time(now.hour, now.minute))
     end_dt = datetime.combine(end_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
+default_selection = [
+    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
+    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
+    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
+]
 selected_keywords = st.multiselect("📂 키워드 선택", all_keywords, default=default_selection)
 use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", value=True)
 
-# === 실행 ===
 if st.button("✅ [단독] 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
         status_text = st.empty()
@@ -163,7 +161,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
 
                 st.markdown(f"**△{media}/{title}**")
                 st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
-                st.caption(link)
+                st.markdown(f"🔗 [원문 보기]({link})")
                 if matched_keywords:
                     st.write(f"**일치 키워드:** {', '.join(matched_keywords)}")
                 st.markdown(f"- {highlighted_body}", unsafe_allow_html=True)
@@ -179,7 +177,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n{row['링크']}\n"
+                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n"
                 if row['필터일치']:
                     text_block += f"[일치 키워드: {row['필터일치']}]\n"
                 text_block += f"- {row['본문']}\n\n"
