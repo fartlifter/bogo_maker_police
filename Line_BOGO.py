@@ -177,9 +177,11 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                text_block += f"△{row['매체']}/{row['제목']}\n{row['날짜']}\n"
+                clean_title = row['제목'].replace("[단독]", "").strip()
+                text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n"
                 text_block += f"- {row['본문']}\n\n"
-
+        
             st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300, key="copy_area")
             st.code(text_block.strip(), language="markdown")
             st.caption("위 내용을 복사해서 사용하세요.")
+
