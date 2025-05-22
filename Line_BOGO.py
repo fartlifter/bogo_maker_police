@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
-import re  # 단독 제거용
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -42,7 +41,7 @@ def extract_media_name(url):
             "kmib": "국민", "munhwa": "문화", "kbs": "KBS", "sbs": "SBS",
             "imnews": "MBC", "jtbc": "JTBC", "ichannela": "채널A", "tvchosun": "TV조선",
             "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
-            "newsis": "뉴시스", "yna": "연합", "weekly": "주간조선", "mt": "머투"
+            "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선"
         }
         return media_mapping.get(media_key.lower(), media_key.upper())
     except:
@@ -72,7 +71,7 @@ all_keywords = [
 
 # === UI ===
 st.title("📰 [단독] 뉴스 수집기")
-st.markdown("✅ `[단독] 기사`를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
+st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
 
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.date()
@@ -88,7 +87,11 @@ with col2:
     end_time = st.time_input("종료 시각", value=time(now.hour, now.minute))
     end_dt = datetime.combine(end_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
-default_selection = all_keywords[:22]
+default_selection = [
+    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
+    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
+    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
+]
 selected_keywords = st.multiselect("📂 키워드 선택", all_keywords, default=default_selection)
 use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", value=True)
 
@@ -145,7 +148,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                 for kw in matched_keywords:
                     highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
 
-                media = extract_media_name(item.get("originallink", "") or link)
+                media = extract_media_name(item.get("originallink", ""))
                 all_articles.append({
                     "키워드": "[단독]",
                     "매체": media,
@@ -156,19 +159,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                     "링크": link
                 })
 
-                # 🔥 긴 제목 줄바꿈 적용
-                st.markdown(
-                    f"""
-                    <div style="padding: 0.3em; font-size: 1.1em; line-height: 1.5em;
-                                white-space: normal !important;
-                                word-break: break-word !important;
-                                overflow-wrap: break-word;
-                                display: block;">
-                        △{media}/{title}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                st.markdown(f"**△{media}/{title}**")
                 st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
                 st.markdown(f"🔗 [원문 보기]({link})")
                 if matched_keywords:
@@ -186,10 +177,12 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                # [단독], (단독) 등 제거
+                # 정규표현식으로 [단독] 또는 ⓧ단독 등 유사 패턴 제거
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n"
                 text_block += f"- {row['본문']}\n\n"
-
+        
             st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300, key="copy_area")
+            st.code(text_block.strip(), language="markdown")
             st.caption("위 내용을 복사해서 사용하세요.")
+
