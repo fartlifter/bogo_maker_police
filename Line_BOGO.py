@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
-import re  # ← 추가
+import re  # 단독 제거용
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -156,8 +156,19 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                     "링크": link
                 })
 
-                # 긴 제목 줄바꿈되도록 HTML 사용
-                st.markdown(f"<div style='white-space: normal; word-break: break-word;'>△{media}/{title}</div>", unsafe_allow_html=True)
+                # 🔥 긴 제목 줄바꿈 적용
+                st.markdown(
+                    f"""
+                    <div style="padding: 0.3em; font-size: 1.1em; line-height: 1.5em;
+                                white-space: normal !important;
+                                word-break: break-word !important;
+                                overflow-wrap: break-word;
+                                display: block;">
+                        △{media}/{title}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 st.caption(pub_dt.strftime("%Y-%m-%d %H:%M:%S"))
                 st.markdown(f"🔗 [원문 보기]({link})")
                 if matched_keywords:
@@ -175,7 +186,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                # [단독], (단독), ⓧ단독 등 패턴 제거
+                # [단독], (단독) 등 제거
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n"
                 text_block += f"- {row['본문']}\n\n"
