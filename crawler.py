@@ -34,20 +34,27 @@ def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
         parts = domain.split(".")
-        media_key = (
-            parts[2] if parts[0] == "www" and parts[1] == "news"
-            else parts[1] if parts[0] in ("www", "news")
-            else parts[0]
-        )
+        if len(parts) >= 3:
+            composite_key = f"{parts[-3]}.{parts[-2]}"  # 예: biz.chosun
+        else:
+            composite_key = parts[0]
+
         media_mapping = {
             "chosun": "조선", "joongang": "중앙", "donga": "동아", "hani": "한겨레",
             "khan": "경향", "hankookilbo": "한국", "segye": "세계", "seoul": "서울",
             "kmib": "국민", "munhwa": "문화", "kbs": "KBS", "sbs": "SBS",
             "imnews": "MBC", "jtbc": "JTBC", "ichannela": "채널A", "tvchosun": "TV조선",
             "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
-            "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선"
+            "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
+            "biz.chosun": "조선비즈"
         }
-        return media_mapping.get(media_key.lower(), media_key.upper())
+
+        if composite_key in media_mapping:
+            return media_mapping[composite_key]
+        for part in reversed(parts):
+            if part in media_mapping:
+                return media_mapping[part]
+        return composite_key.upper()
     except:
         return "[매체추출실패]"
 
@@ -111,7 +118,7 @@ all_keywords = [
 ]
 
 # === UI ===
-st.title("📰 [단독] 뉴스 수집기")
+st.title("📰 [단독] 뉴스 수집기_경찰팀 ver")
 st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
 
 now = datetime.now(ZoneInfo("Asia/Seoul"))
