@@ -41,7 +41,7 @@ def extract_media_name(url):
         media_mapping = {
             "chosun": "조선", "joongang": "중앙", "donga": "동아", "hani": "한겨레",
             "khan": "경향", "hankookilbo": "한국", "segye": "세계", "seoul": "서울",
-            "kmib": "국민", "munhwa": "문화", "kbs": "KBS", "sbs": "SBS",
+            "kmib": "국민", "munhwa": "문화", "fnnews": "파뉴", "kbs": "KBS", "sbs": "SBS",
             "imnews": "MBC", "jtbc": "JTBC", "ichannela": "채널A", "tvchosun": "TV조선",
             "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
             "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
