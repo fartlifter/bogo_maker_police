@@ -85,11 +85,10 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         matched_keywords = [kw for kw in selected_keywords if kw in body]
         if not matched_keywords:
             return None
-    # 본문 하이라이트 처리 + 줄바꿈 처리
     highlighted_body = body
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
-    highlighted_body = highlighted_body.replace("\n", "<br>")
+    highlighted_body = highlighted_body.replace("\n", "<br><br>")  # 빈 줄 처리
     media = extract_media_name(item.get("originallink", ""))
     return {
         "키워드": "[단독]",
@@ -197,11 +196,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # 제목 표시: 길게 나오도록 HTML 스타일 적용
-                        st.markdown(
-                            f"<div style='word-break: break-word; font-weight: bold;'>△{result['매체']}/{result['제목']}</div>",
-                            unsafe_allow_html=True
-                        )
+                        # 제목 출력: 줄바꿈 방지, 잘림 없이 전체 출력
+                        st.text(f"△{result['매체']}/{result['제목']}")
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
