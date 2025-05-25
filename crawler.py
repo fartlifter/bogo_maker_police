@@ -35,10 +35,9 @@ def extract_media_name(url):
         domain = url.split("//")[-1].split("/")[0]
         parts = domain.split(".")
         if len(parts) >= 3:
-            composite_key = f"{parts[-3]}.{parts[-2]}"  # 예: biz.chosun
+            composite_key = f"{parts[-3]}.{parts[-2]}"
         else:
             composite_key = parts[0]
-
         media_mapping = {
             "chosun": "조선", "joongang": "중앙", "donga": "동아", "hani": "한겨레",
             "khan": "경향", "hankookilbo": "한국", "segye": "세계", "seoul": "서울",
@@ -48,7 +47,6 @@ def extract_media_name(url):
             "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
             "biz.chosun": "조선비즈"
         }
-
         if composite_key in media_mapping:
             return media_mapping[composite_key]
         for part in reversed(parts):
@@ -103,19 +101,30 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         "pub_dt": pub_dt
     }
 
-# === 키워드 목록 ===
-all_keywords = [
-    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
-    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
-    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회',
-    '경찰청', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원',
-    '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
-    '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대',
-    '세종대', '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
-    '신촌세브란스병원', '영등포', '양천', '구로', '강서', '남부지검', '남부지법',
-    '군인권센터', '여의도성모병원', '고대구로병원', '관악', '금천', '동작', '방배',
-    '서울대', '중앙대', '숭실대', '보라매병원'
-]
+# === 키워드 카테고리 정의 ===
+keyword_groups = {
+    '시경': ['서울경찰청'],
+    '본청': ['경찰청'],
+    '종혜북': [
+        '종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑',
+        '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원',
+        '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'
+    ],
+    '마포중부': [
+        '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
+        '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대',
+        '숙명여대', '순천향대병원'
+    ],
+    '영등포관악': [
+        '영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원',
+        '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'
+    ],
+    '강남광진': [
+        '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
+        '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대',
+        '건국대', '세종대'
+    ]
+}
 
 # === UI ===
 st.title("📰 [단독] 뉴스 수집기_경찰팀 ver")
@@ -135,12 +144,15 @@ with col2:
     end_time = st.time_input("종료 시각", value=time(now.hour, now.minute))
     end_dt = datetime.combine(end_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
-default_selection = [
-    '종로', '종암', '성북', '혜화', '동대문', '중랑', '노원', '강북', '도봉',
-    '고려대', '참여연대', '경실련', '성균관대', '한국외대', '서울시립대', '경희대',
-    '서울대병원', '북부지법', '북부지검', '상계백병원', '서울경찰청', '국가인권위원회'
-]
-selected_keywords = st.multiselect("📂 키워드 선택", all_keywords, default=default_selection)
+group_labels = list(keyword_groups.keys())
+default_groups = ['시경', '종혜북']
+
+selected_groups = st.multiselect("📚 지역 그룹 선택", group_labels, default=default_groups)
+
+selected_keywords = []
+for group in selected_groups:
+    selected_keywords.extend(keyword_groups[group])
+
 use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", value=True)
 
 if st.button("✅ [단독] 뉴스 수집 시작"):
@@ -199,7 +211,6 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             text_block = ""
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']}/{clean_title}\n{row['날짜']}\n- {row['본문']}\n\n"
-            st.text_area("📋 복사용 전체 기사", text_block.strip(), height=300, key="copy_area")
+                text_block += f"△{row['매체']}/{clean_title}\n- {row['본문']}\n\n"
             st.code(text_block.strip(), language="markdown")
             st.caption("위 내용을 복사해서 사용하세요.")
