@@ -195,7 +195,7 @@ if st.button("✅ 뉴스 수집 시작"):
     if general_articles:
         st.markdown("## ◆ 연합뉴스·뉴시스")
         for a in general_articles:
-            st.markdown(f"△{a['source']}/{a['title']}")
+            st.markdown(f"△{a['title']}")
             st.caption(a['datetime'].strftime('%Y-%m-%d %H:%M'))
             highlighted = highlight_keywords(a['content'], selected_keywords)
             st.markdown(f"- {highlighted}", unsafe_allow_html=True)
@@ -208,12 +208,13 @@ if st.button("✅ 뉴스 수집 시작"):
             highlighted = highlight_keywords(a['content'], selected_keywords)
             st.markdown(f"- {highlighted}", unsafe_allow_html=True)
 
-    text_block = "<보고>\n"
+    text_block = "<보고>
+"
     if general_articles:
         text_block += "【사회면】
 "
         for a in general_articles:
-            text_block += f"△{a['source']}/{a['title']}
+            text_block += f"△{a['title']}
 -{a['content']}
 
 "
