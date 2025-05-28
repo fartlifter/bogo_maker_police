@@ -96,7 +96,10 @@ def collect_newsis_articles(start_dt, end_dt, status):
                 continue
             dt = datetime.strptime(match.group(), "%Y.%m.%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Seoul"))
             if dt < start_dt:
-                return fetch_contents(articles, get_newsis_content)
+                filtered = fetch_contents(articles, get_newsis_content)
+            if use_filter:
+                filtered = [a for a in filtered if any(kw in (a.get('content') or '') for kw in selected_keywords)]
+            return filtered
             if dt > end_dt:
                 continue
             articles.append({"source": "뉴시스", "title": title_tag.text.strip(), "datetime": dt, "url": "https://www.newsis.com" + title_tag['href']})
@@ -121,7 +124,10 @@ def collect_yonhap_articles(start_dt, end_dt, status):
                 continue
             dt = datetime.strptime(f"2025-{time_tag.text.strip()}", "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("Asia/Seoul"))
             if dt < start_dt:
-                return fetch_contents(articles, get_yonhap_content)
+                filtered = fetch_contents(articles, get_yonhap_content)
+            if use_filter:
+                filtered = [a for a in filtered if any(kw in (a.get('content') or '') for kw in selected_keywords)]
+            return filtered
             if dt > end_dt:
                 continue
             articles.append({"source": "연합뉴스", "title": title_tag.text.strip(), "datetime": dt, "url": f"https://www.yna.co.kr/view/{item['data-cid']}"})
@@ -147,6 +153,8 @@ def collect_naver_articles(start_dt, end_dt, selected_keywords, use_filter, stat
                 continue
             seen.add(link)
             matched = [kw for kw in selected_keywords if kw in body] if use_filter else selected_keywords
+            if use_filter and not matched:
+                continue
             if use_filter and not matched:
                 continue
             results.append({"source": "단독", "title": title, "datetime": pub_date, "content": body, "matched": matched})
@@ -202,12 +210,20 @@ if st.button("✅ 뉴스 수집 시작"):
 
     text_block = "<보고>\n"
     if general_articles:
-        text_block += "【사회면】\n"
+        text_block += "【사회면】
+"
         for a in general_articles:
-            text_block += f"△{a['title']}\n-{a['content']}\n\n"
+            text_block += f"△{a['source']}/{a['title']}
+-{a['content']}
+
+"
     if danok_articles:
-        text_block += "【타지】\n"
+        text_block += "【타지】
+"
         for a in danok_articles:
-            text_block += f"△{a['title']}\n-{a['content']}\n\n"
+            text_block += f"△{a['source']}/{a['title']}
+-{a['content']}
+
+"
     st.code(text_block.strip(), language="markdown")
     st.caption("복사해서 보고서 등에 활용하세요.")
