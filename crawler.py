@@ -96,10 +96,7 @@ def collect_newsis_articles(start_dt, end_dt, status):
                 continue
             dt = datetime.strptime(match.group(), "%Y.%m.%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Seoul"))
             if dt < start_dt:
-                filtered = fetch_contents(articles, get_newsis_content)
-            if use_filter:
-                filtered = [a for a in filtered if any(kw in (a.get('content') or '') for kw in selected_keywords)]
-            return filtered
+                return fetch_contents(articles, get_newsis_content)
             if dt > end_dt:
                 continue
             articles.append({"source": "뉴시스", "title": title_tag.text.strip(), "datetime": dt, "url": "https://www.newsis.com" + title_tag['href']})
@@ -124,10 +121,7 @@ def collect_yonhap_articles(start_dt, end_dt, status):
                 continue
             dt = datetime.strptime(f"2025-{time_tag.text.strip()}", "%Y-%m-%d %H:%M").replace(tzinfo=ZoneInfo("Asia/Seoul"))
             if dt < start_dt:
-                filtered = fetch_contents(articles, get_yonhap_content)
-            if use_filter:
-                filtered = [a for a in filtered if any(kw in (a.get('content') or '') for kw in selected_keywords)]
-            return filtered
+                return fetch_contents(articles, get_yonhap_content)
             if dt > end_dt:
                 continue
             articles.append({"source": "연합뉴스", "title": title_tag.text.strip(), "datetime": dt, "url": f"https://www.yna.co.kr/view/{item['data-cid']}"})
@@ -152,9 +146,7 @@ def collect_naver_articles(start_dt, end_dt, selected_keywords, use_filter, stat
             if not body:
                 continue
             seen.add(link)
-            matched = [kw for kw in selected_keywords if kw in body] if use_filter else selected_keywords
-            if use_filter and not matched:
-                continue
+            matched = [kw for kw in selected_keywords if kw in body] if use_filter else []
             if use_filter and not matched:
                 continue
             results.append({"source": "단독", "title": title, "datetime": pub_date, "content": body, "matched": matched})
@@ -188,6 +180,9 @@ if st.button("✅ 뉴스 수집 시작"):
             newsis = collect_newsis_articles(start_dt, end_dt, status)
             yonhap = collect_yonhap_articles(start_dt, end_dt, status)
             general_articles = newsis + yonhap
+            if use_filter:
+                general_articles = [a for a in general_articles if any(kw in (a.get('content') or '') for kw in selected_keywords)]
+
     if collect_danok:
         with st.spinner("[단독] 기사 수집 중..."):
             danok_articles = collect_naver_articles(start_dt, end_dt, selected_keywords, use_filter, status)
@@ -203,39 +198,23 @@ if st.button("✅ 뉴스 수집 시작"):
     if danok_articles:
         st.markdown("## ◆ 단독")
         for a in danok_articles:
-            st.markdown(f"△단독/{a['title']}")
+            st.markdown(f"△{a['source']}/{a['title']}")
             st.caption(a['datetime'].strftime('%Y-%m-%d %H:%M'))
             highlighted = highlight_keywords(a['content'], selected_keywords)
             st.markdown(f"- {highlighted}", unsafe_allow_html=True)
 
-    text_block = "<보고>
-"
-"
+    # 복사용 텍스트 박스 생성
+    text_block = """<보고>
+"""
     if general_articles:
-            if general_articles:
-        text_block += "【사회면】
-"
-"
+        text_block += "【사회면】\n"
         for a in general_articles:
-                        text_block += f"△{a['title']}
--{a['content']}
+            text_block += f"△{a['title']}\n-{a['content']}\n\n"
 
-"
--{a['content']}
-
-"
     if danok_articles:
-            if danok_articles:
-        text_block += "【타지】
-"
-"
+        text_block += "【타지】\n"
         for a in danok_articles:
-                        text_block += f"△{a['source']}/{a['title']}
--{a['content']}
+            text_block += f"△{a['source']}/{a['title']}\n-{a['content']}\n\n"
 
-"
--{a['content']}
-
-"
     st.code(text_block.strip(), language="markdown")
     st.caption("복사해서 보고서 등에 활용하세요.")
