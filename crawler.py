@@ -210,19 +210,30 @@ if st.button("✅ 뉴스 수집 시작"):
 
     text_block = "<보고>
 "
+"
     if general_articles:
+            if general_articles:
         text_block += "【사회면】
 "
+"
         for a in general_articles:
-            text_block += f"△{a['title']}
+                        text_block += f"△{a['title']}
+-{a['content']}
+
+"
 -{a['content']}
 
 "
     if danok_articles:
+            if danok_articles:
         text_block += "【타지】
 "
+"
         for a in danok_articles:
-            text_block += f"△{a['source']}/{a['title']}
+                        text_block += f"△{a['source']}/{a['title']}
+-{a['content']}
+
+"
 -{a['content']}
 
 "
