@@ -128,7 +128,7 @@ keyword_groups = {
 }
 
 # === UI ===
-st.title("📰 단독기사 수집기_경찰팀 ver")
+st.title("📰 단독기사 수집기_경찰팀")
 st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
 
 now = datetime.now(ZoneInfo("Asia/Seoul"))
