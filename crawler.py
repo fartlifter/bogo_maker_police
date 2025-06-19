@@ -6,43 +6,10 @@ from zoneinfo import ZoneInfo
 import time as t
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
-
-# === 요약 모델 로딩 ===
-@st.cache_resource(show_spinner=False)
-def load_kobart_model_and_tokenizer():
-    tokenizer = PreTrainedTokenizerFast.from_pretrained("EbanLee/kobart-summary-v3")
-    model = BartForConditionalGeneration.from_pretrained("EbanLee/kobart-summary-v3")
-    return tokenizer, model
-
-tokenizer, model = load_kobart_model_and_tokenizer()
-
-def summarize_article_kobart(text):
-    try:
-        if len(text) > 1024:
-            text = text[:1024]
-        inputs = tokenizer(text, return_tensors="pt", padding="max_length", truncation=True, max_length=1026)
-
-        summary_ids = model.generate(
-            input_ids=inputs['input_ids'],
-            attention_mask=inputs['attention_mask'],
-            bos_token_id=model.config.bos_token_id,
-            eos_token_id=model.config.eos_token_id,
-            length_penalty=1.0,
-            max_length=300,
-            min_length=12,
-            num_beams=6,
-            repetition_penalty=1.5,
-            no_repeat_ngram_size=15,
-        )
-
-        return tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-    except Exception as e:
-        return "[요약 실패]"
 
 def parse_pubdate(pubdate_str):
     try:
@@ -121,8 +88,7 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
     highlighted_body = body
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
-    highlighted_body = highlighted_body.replace("\n", "<br><br>")
-    summary = summarize_article_kobart(body)
+    highlighted_body = highlighted_body.replace("\n", "<br><br>")  # 빈 줄 처리
     media = extract_media_name(item.get("originallink", ""))
     return {
         "키워드": "[단독]",
@@ -130,7 +96,6 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         "제목": title,
         "날짜": pub_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "본문": body,
-        "요약": summary,
         "필터일치": ", ".join(matched_keywords),
         "링크": link,
         "하이라이트": highlighted_body,
@@ -141,14 +106,31 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
 keyword_groups = {
     '시경': ['서울경찰청'],
     '본청': ['경찰청'],
-    '종혜북': ['종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑', '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원', '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'],
-    '마포중부': ['마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대', '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원'],
-    '영등포관악': ['영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원', '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'],
-    '강남광진': ['강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원', '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대', '세종대']
+    '종혜북': [
+        '종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑',
+        '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원',
+        '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'
+    ],
+    '마포중부': [
+        '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
+        '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대',
+        '숙명여대', '순천향대병원'
+    ],
+    '영등포관악': [
+        '영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원',
+        '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'
+    ],
+    '강남광진': [
+        '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
+        '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대',
+        '건국대', '세종대'
+    ]
 }
 
 # === UI ===
-st.title("📰 단독기사 수집기 with KoBART 요약")
+st.title("📰 단독기사 수집기_경찰팀")
+st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
+
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.date()
 
@@ -159,12 +141,13 @@ with col1:
     start_dt = datetime.combine(start_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
 with col2:
-    end_date = st.date_input("종료 날짜", value=today)
+    end_date = st.date_input("종료 날짜", value=today, key="end_date")
     end_time = st.time_input("종료 시각", value=time(now.hour, now.minute))
     end_dt = datetime.combine(end_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
 
 group_labels = list(keyword_groups.keys())
 default_groups = ['시경', '종혜북']
+
 selected_groups = st.multiselect("📚 지역 그룹 선택", group_labels, default=default_groups)
 
 selected_keywords = []
@@ -213,13 +196,13 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
+                        # 제목 출력: 줄바꿈 방지, 잘림 없이 전체 출력
                         st.text(f"△{result['매체']}/{result['제목']}")
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
                             st.write(f"**일치 키워드:** {result['필터일치']}")
                         st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
-                        st.markdown(f"✏️ 요약: {result['요약']}")
                         total += 1
                         status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
 
@@ -231,6 +214,6 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             text_block = ""
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']}/{clean_title}\n- {row['요약']}\n\n"
+                text_block += f"△{row['매체']}/{clean_title}\n- {row['본문']}\n\n"
             st.code(text_block.strip(), language="markdown")
-            st.caption("📝 위 요약 내용을 복사해서 사용하세요.")
+            st.caption("위 내용을 복사해서 사용하세요.")
