@@ -4,6 +4,3 @@ pandas
 openpyxl
 beautifulsoup4
 requests
-transformers
-sentencepiece
-torch
