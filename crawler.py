@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 import time as t
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration
+from transformers import AutoTokenizer, BartForConditionalGeneration
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -15,7 +15,7 @@ client_secret = "49E810CBKY"
 # === 요약 모델 로딩 ===
 @st.cache_resource(show_spinner=False)
 def load_kobart_model_and_tokenizer():
-    tokenizer = PreTrainedTokenizerFast.from_pretrained("EbanLee/kobart-summary-v3")
+    tokenizer = AutoTokenizer.from_pretrained("EbanLee/kobart-summary-v3")
     model = BartForConditionalGeneration.from_pretrained("EbanLee/kobart-summary-v3")
     return tokenizer, model
 
