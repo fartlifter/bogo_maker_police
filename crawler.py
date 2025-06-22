@@ -194,7 +194,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             if not items:
                 break
 
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor(max_workers=25) as executor:
                 futures = [
                     executor.submit(fetch_and_filter, (item, start_dt, end_dt, selected_keywords, use_keyword_filter))
                     for item in items
