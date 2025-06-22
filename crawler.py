@@ -196,8 +196,12 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # 제목 출력: 줄바꿈 방지, 잘림 없이 전체 출력
-                        st.text(f"△{result['매체']}/{result['제목']}")
+                        # ✅ 제목 줄바꿈 처리
+                        st.markdown(
+                            f"<div style='white-space: normal; overflow-wrap: break-word; font-weight: bold;'>"
+                            f"△{result['매체']} / {result['제목']}</div>",
+                            unsafe_allow_html=True
+                        )
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
@@ -214,6 +218,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             text_block = ""
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']}/{clean_title}\n- {row['본문']}\n\n"
-            st.code(text_block.strip(), language="markdown")
+                text_block += f"△{row['매체']} / {clean_title}\n- {row['본문']}\n\n"
+
+            # ✅ 복사용 텍스트를 text_area로 출력 (잘림 없음)
+            st.text_area("복사할 기사 모음", value=text_block.strip(), height=600)
             st.caption("위 내용을 복사해서 사용하세요.")
