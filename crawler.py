@@ -11,6 +11,66 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
+# ✅ CSS 삽입: 제목 잘림 문제 해결
+st.markdown("""
+    <style>
+    .element-container:has(.stText),
+    .element-container:has(.stMarkdown),
+    .element-container:has(.stCaption) {
+        overflow: visible !important;
+        white-space: normal !important;
+        text-overflow: initial !important;
+        max-width: none !important;
+        display: block !important;
+    }
+
+    .stMarkdown, .stText, .stCaption {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        text-overflow: initial !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# === 기본 UI ===
+st.title("📰 단독기사 수집기_경찰팀")
+st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
+
+now = datetime.now(ZoneInfo("Asia/Seoul"))
+today = now.date()
+
+col1, col2 = st.columns(2)
+with col1:
+    start_date = st.date_input("시작 날짜", value=today)
+    start_time = st.time_input("시작 시각", value=time(0, 0))
+    start_dt = datetime.combine(start_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
+
+with col2:
+    end_date = st.date_input("종료 날짜", value=today, key="end_date")
+    end_time = st.time_input("종료 시각", value=time(now.hour, now.minute))
+    end_dt = datetime.combine(end_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
+
+# === 키워드 그룹 ===
+keyword_groups = {
+    '시경': ['서울경찰청'],
+    '본청': ['경찰청'],
+    '종혜북': ['종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑', '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원', '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'],
+    '마포중부': ['마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대', '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원'],
+    '영등포관악': ['영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원', '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'],
+    '강남광진': ['강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원', '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대', '세종대']
+}
+group_labels = list(keyword_groups.keys())
+default_groups = ['시경', '종혜북']
+
+selected_groups = st.multiselect("📚 지역 그룹 선택", group_labels, default=default_groups)
+selected_keywords = []
+for group in selected_groups:
+    selected_keywords.extend(keyword_groups[group])
+
+use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", value=True)
+
+# === 유틸 함수들 ===
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
@@ -34,25 +94,12 @@ def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
         parts = domain.split(".")
-        if len(parts) >= 3:
-            composite_key = f"{parts[-3]}.{parts[-2]}"
-        else:
-            composite_key = parts[0]
+        composite_key = f"{parts[-3]}.{parts[-2]}" if len(parts) >= 3 else parts[0]
         media_mapping = {
             "chosun": "조선", "joongang": "중앙", "donga": "동아", "hani": "한겨레",
-            "khan": "경향", "hankookilbo": "한국", "segye": "세계", "seoul": "서울",
-            "kmib": "국민", "munhwa": "문화", "kbs": "KBS", "sbs": "SBS",
-            "imnews": "MBC", "jtbc": "JTBC", "ichannela": "채널A", "tvchosun": "TV조선",
-            "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
-            "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
-            "biz.chosun": "조선비즈", "fnnews": "파뉴"
+            "khan": "경향", "segye": "세계", "yna": "연합", "newsis": "뉴시스"
         }
-        if composite_key in media_mapping:
-            return media_mapping[composite_key]
-        for part in reversed(parts):
-            if part in media_mapping:
-                return media_mapping[part]
-        return composite_key.upper()
+        return media_mapping.get(composite_key, composite_key.upper())
     except:
         return "[매체추출실패]"
 
@@ -88,7 +135,7 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
     highlighted_body = body
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
-    highlighted_body = highlighted_body.replace("\n", "<br><br>")  # 빈 줄 처리
+    highlighted_body = highlighted_body.replace("\n", "<br><br>")
     media = extract_media_name(item.get("originallink", ""))
     return {
         "키워드": "[단독]",
@@ -102,60 +149,7 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         "pub_dt": pub_dt
     }
 
-# === 키워드 카테고리 정의 ===
-keyword_groups = {
-    '시경': ['서울경찰청'],
-    '본청': ['경찰청'],
-    '종혜북': [
-        '종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑',
-        '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원',
-        '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'
-    ],
-    '마포중부': [
-        '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
-        '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대',
-        '숙명여대', '순천향대병원'
-    ],
-    '영등포관악': [
-        '영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원',
-        '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'
-    ],
-    '강남광진': [
-        '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
-        '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대',
-        '건국대', '세종대'
-    ]
-}
-
-# === UI ===
-st.title("📰 단독기사 수집기_경찰팀")
-st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
-
-now = datetime.now(ZoneInfo("Asia/Seoul"))
-today = now.date()
-
-col1, col2 = st.columns(2)
-with col1:
-    start_date = st.date_input("시작 날짜", value=today)
-    start_time = st.time_input("시작 시각", value=time(0, 0))
-    start_dt = datetime.combine(start_date, start_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
-
-with col2:
-    end_date = st.date_input("종료 날짜", value=today, key="end_date")
-    end_time = st.time_input("종료 시각", value=time(now.hour, now.minute))
-    end_dt = datetime.combine(end_date, end_time).replace(tzinfo=ZoneInfo("Asia/Seoul"))
-
-group_labels = list(keyword_groups.keys())
-default_groups = ['시경', '종혜북']
-
-selected_groups = st.multiselect("📚 지역 그룹 선택", group_labels, default=default_groups)
-
-selected_keywords = []
-for group in selected_groups:
-    selected_keywords.extend(keyword_groups[group])
-
-use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", value=True)
-
+# === 수집 실행 ===
 if st.button("✅ [단독] 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
         status_text = st.empty()
@@ -196,7 +190,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # ✅ 제목 출력: 본문처럼 처리해 줄바꿈 유도, 생략 없음
+                        # ✅ 제목도 본문처럼 출력 (CSS 덕분에 잘림 없음)
                         st.write(f"△{result['매체']} / {result['제목']}")
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
@@ -215,10 +209,9 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 wrapped_title = f"△{row['매체']} / {clean_title}"
-                # 긴 제목일 경우 줄바꿈 삽입
                 wrapped_title = re.sub(r"(.{60,80})\s", r"\1\n", wrapped_title)
                 text_block += f"{wrapped_title}\n- {row['본문']}\n\n"
 
-            # ✅ 복사용 텍스트: 줄바꿈 유도된 text_area 사용
+            # ✅ 복사용 텍스트도 줄바꿈 포함
             st.text_area("복사할 기사 모음", value=text_block.strip(), height=600)
             st.caption("위 내용을 복사해서 사용하세요.")
