@@ -196,20 +196,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # ✅ 기사 제목: ellipsis 없이 줄바꿈 가능하게 출력
-                        st.markdown(
-                            f"""
-                            <pre style='
-                                white-space: pre-wrap;
-                                word-break: break-word;
-                                font-weight: bold;
-                                font-size: 18px;
-                                line-height: 1.5;
-                                margin-bottom: 0.5rem;
-                            '>△{result['매체']} / {result['제목']}</pre>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                        # ✅ 제목 출력: 본문처럼 처리해 줄바꿈 유도, 생략 없음
+                        st.write(f"△{result['매체']} / {result['제목']}")
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
@@ -226,22 +214,11 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             text_block = ""
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                title_line = f"△{row['매체']} / {clean_title}"
-                text_block += f"{title_line}\n- {row['본문']}\n\n"
+                wrapped_title = f"△{row['매체']} / {clean_title}"
+                # 긴 제목일 경우 줄바꿈 삽입
+                wrapped_title = re.sub(r"(.{60,80})\s", r"\1\n", wrapped_title)
+                text_block += f"{wrapped_title}\n- {row['본문']}\n\n"
 
-            # ✅ 복사용 텍스트도 <pre>로 표시 (ellipsis 방지)
-            st.markdown(
-                f"""
-                <pre style='
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                    font-size: 14px;
-                    background-color: #f0f2f6;
-                    padding: 1rem;
-                    border-radius: 0.5rem;
-                    line-height: 1.6;
-                '>{text_block.strip()}</pre>
-                """,
-                unsafe_allow_html=True
-            )
+            # ✅ 복사용 텍스트: 줄바꿈 유도된 text_area 사용
+            st.text_area("복사할 기사 모음", value=text_block.strip(), height=600)
             st.caption("위 내용을 복사해서 사용하세요.")
