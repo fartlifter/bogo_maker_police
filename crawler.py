@@ -30,6 +30,19 @@ def extract_article_text(url):
         pass
     return None
 
+def extract_true_title(url):
+    try:
+        if "n.news.naver.com" not in url:
+            return None
+        html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
+        if html.status_code == 200:
+            soup = BeautifulSoup(html.text, "html.parser")
+            title_div = soup.find("div", class_="media_end_head_title")
+            return title_div.get_text(strip=True) if title_div else None
+    except:
+        pass
+    return None
+
 def extract_media_name(url):
     try:
         domain = url.split("//")[-1].split("/")[0]
@@ -68,28 +81,35 @@ def safe_api_request(url, headers, params, max_retries=3):
     return res
 
 def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filter):
-    title = BeautifulSoup(item["title"], "html.parser").get_text()
-    if "[단독]" not in title:
-        return None
-    pub_dt = parse_pubdate(item.get("pubDate"))
-    if not pub_dt or not (start_dt <= pub_dt <= end_dt):
-        return None
     link = item.get("link")
     if not link or "n.news.naver.com" not in link:
         return None
+
+    # ✅ 실제 기사 페이지에서 제목 추출
+    title = extract_true_title(link)
+    if not title or "[단독]" not in title:
+        return None
+
+    pub_dt = parse_pubdate(item.get("pubDate"))
+    if not pub_dt or not (start_dt <= pub_dt <= end_dt):
+        return None
+
     body = extract_article_text(link)
     if not body:
         return None
+
     matched_keywords = []
     if use_keyword_filter and selected_keywords:
         matched_keywords = [kw for kw in selected_keywords if kw in body]
         if not matched_keywords:
             return None
+
     highlighted_body = body
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
     highlighted_body = highlighted_body.replace("\n", "<br><br>")  # 빈 줄 처리
     media = extract_media_name(item.get("originallink", ""))
+
     return {
         "키워드": "[단독]",
         "매체": media,
@@ -111,20 +131,12 @@ keyword_groups = {
         '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원',
         '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'
     ],
-    '마포중부': [
-        '마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
-        '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대',
-        '숙명여대', '순천향대병원'
-    ],
-    '영등포관악': [
-        '영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원',
-        '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'
-    ],
-    '강남광진': [
-        '강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
-        '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대',
-        '건국대', '세종대'
-    ]
+    '마포중부': ['마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
+        '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원'],
+    '영등포관악': ['영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원',
+        '고대구로병원', '관악', '금천', '동작', '방배', '서울대', '중앙대', '숭실대', '보라매병원'],
+    '강남광진': ['강남', '서초', '수서', '송파', '강동', '삼성의료원', '현대아산병원',
+        '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대', '세종대']
 }
 
 # === UI ===
@@ -196,8 +208,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # 제목 출력: 줄바꿈 방지, 잘림 없이 전체 출력
-                        st.text(f"△{result['매체']}/{result['제목']}")
+                        st.text(f"△{result['매체']} / {result['제목']}")
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
@@ -214,6 +225,6 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             text_block = ""
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']}/{clean_title}\n- {row['본문']}\n\n"
-            st.code(text_block.strip(), language="markdown")
+                text_block += f"△{row['매체']} / {clean_title}\n- {row['본문']}\n\n"
+            st.text_area("복사할 기사 모음", value=text_block.strip(), height=600)
             st.caption("위 내용을 복사해서 사용하세요.")
