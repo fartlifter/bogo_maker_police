@@ -94,7 +94,7 @@ def fetch_and_filter(item_data):
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
     highlighted_body = highlighted_body.replace("\n", "<br><br>")
-    media = extract_media_name(link)
+    media = extract_media_name(item.get("originallink", ""))
 
     return {
         "키워드": "[단독]",
