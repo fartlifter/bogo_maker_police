@@ -194,8 +194,13 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # ✅ 제목도 본문처럼 표시 (줄바꿈/HTML 허용)
-                        st.markdown(f"<b>△{result['매체']}/{result['제목']}</b>", unsafe_allow_html=True)
+                        # ✅ 제목 줄바꿈 및 잘림 방지
+                        st.markdown(
+                            f"""<div style='font-size: 1.1em; font-weight: bold; white-space: normal; word-break: break-word;'>
+                                △{result['매체']}/{result['제목']}
+                            </div>""",
+                            unsafe_allow_html=True
+                        )
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
