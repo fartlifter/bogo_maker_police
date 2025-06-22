@@ -126,7 +126,6 @@ keyword_groups = {
     ]
 }
 
-# === UI ===
 st.title("📰 단독기사 수집기_경찰팀")
 st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
 
@@ -194,18 +193,17 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # ✅ 제목 줄바꿈 및 잘림 방지
-                        st.markdown(
-                            f"""<div style='font-size: 1.1em; font-weight: bold; white-space: normal; word-break: break-word;'>
-                                △{result['매체']}/{result['제목']}
-                            </div>""",
-                            unsafe_allow_html=True
-                        )
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
                             st.write(f"**일치 키워드:** {result['필터일치']}")
-                        st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
+
+                        # ✅ 제목을 본문처럼 출력하여 줄바꿈 및 잘림 방지
+                        st.markdown(
+                            f"""- <b>△{result['매체']}/{result['제목']}</b><br><br>{result['하이라이트']}""",
+                            unsafe_allow_html=True
+                        )
+
                         total += 1
                         status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
 
