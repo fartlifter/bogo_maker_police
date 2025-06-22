@@ -11,10 +11,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
-# 세션 초기화
-if "articles" not in st.session_state:
-    st.session_state["articles"] = []
+# === 세션 상태 초기화 ===
+for key in ["articles", "status_text", "progress"]:
+    if key not in st.session_state:
+        st.session_state[key] = [] if key == "articles" else 0 if key == "progress" else ""
 
+# === 공통 함수 ===
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
@@ -129,7 +131,7 @@ keyword_groups = {
 
 # === Streamlit UI ===
 st.title("📰 단독기사 수집기_경찰팀")
-st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
+st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다. 선택한 기사만 최하단 복사용 박스에 표시됩니다. 업데이트:250622 1815")
 
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.date()
@@ -155,6 +157,12 @@ for group in selected_groups:
 
 use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", value=True)
 
+# 진행 상태 표시
+status_placeholder = st.empty()
+progress_bar = st.progress(st.session_state["progress"])
+status_placeholder.markdown(st.session_state["status_text"])
+
+# === 수집 버튼 ===
 if st.button("✅ [단독] 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
         headers = {
@@ -163,7 +171,15 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         }
         seen_links = set()
         all_articles = []
+        total = 0
+
         for start_index in range(1, 1001, 100):
+            progress = start_index / 1000
+            st.session_state["progress"] = progress
+            progress_bar.progress(progress)
+            st.session_state["status_text"] = f"🟡 수집 중... {total}건 수집됨"
+            status_placeholder.markdown(st.session_state["status_text"])
+
             params = {
                 "query": "[단독]",
                 "sort": "date",
@@ -188,8 +204,13 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                     if result and result["링크"] not in seen_links:
                         seen_links.add(result["링크"])
                         all_articles.append(result)
+                        total += 1
+
         st.session_state["articles"] = all_articles
-        st.success(f"✅ 수집 완료: 총 {len(all_articles)}건")
+        st.session_state["status_text"] = f"✅ 수집 완료: 총 {len(all_articles)}건"
+        st.session_state["progress"] = 1.0
+        status_placeholder.markdown(st.session_state["status_text"])
+        progress_bar.progress(1.0)
 
 # === 기사 표시 및 체크박스 ===
 selected_articles = []
@@ -199,7 +220,6 @@ for idx, result in enumerate(st.session_state["articles"]):
     if result["필터일치"]:
         st.write(f"**일치 키워드:** {result['필터일치']}")
     st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
-
     if is_selected:
         selected_articles.append(result)
 
