@@ -196,20 +196,17 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # ✅ 기사 표시부: 제목 생략 없이 출력
+                        # ✅ 기사 제목: ellipsis 없이 줄바꿈 가능하게 출력
                         st.markdown(
                             f"""
-                            <div style='
-                                white-space: normal;
-                                overflow-wrap: break-word;
+                            <pre style='
+                                white-space: pre-wrap;
                                 word-break: break-word;
-                                display: block;
                                 font-weight: bold;
                                 font-size: 18px;
                                 line-height: 1.5;
-                            '>
-                            △{result['매체']} / {result['제목']}
-                            </div>
+                                margin-bottom: 0.5rem;
+                            '>△{result['매체']} / {result['제목']}</pre>
                             """,
                             unsafe_allow_html=True
                         )
@@ -228,14 +225,23 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                # 제목에서 '[단독]' 제거 및 줄바꿈 유도
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 title_line = f"△{row['매체']} / {clean_title}"
-                # 60자 이상이면 줄바꿈 삽입
-                title_line = re.sub(r"(.{60,80})\s", r"\1\n", title_line)
-
                 text_block += f"{title_line}\n- {row['본문']}\n\n"
 
-            # ✅ 복사용 박스: 줄바꿈 적용된 긴 제목 포함
-            st.text_area("복사할 기사 모음", value=text_block.strip(), height=600)
+            # ✅ 복사용 텍스트도 <pre>로 표시 (ellipsis 방지)
+            st.markdown(
+                f"""
+                <pre style='
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    font-size: 14px;
+                    background-color: #f0f2f6;
+                    padding: 1rem;
+                    border-radius: 0.5rem;
+                    line-height: 1.6;
+                '>{text_block.strip()}</pre>
+                """,
+                unsafe_allow_html=True
+            )
             st.caption("위 내용을 복사해서 사용하세요.")
