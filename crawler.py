@@ -198,6 +198,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                             f"""<p style='margin-bottom: 0.5em;'><b>△{result['매체']}/{result['제목']}</b></p>
                         <p>{result['하이라이트']}</p>""",
                             unsafe_allow_html=True
+                        )
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
