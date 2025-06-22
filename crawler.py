@@ -163,6 +163,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         all_articles = []
         selected_articles = []
         total = 0
+        index_counter = 0
 
         for start_index in range(1, 1001, 100):
             progress_bar.progress(min(start_index / 1000, 1.0))
@@ -192,7 +193,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        is_selected = st.checkbox(f"△{result['매체']} / {result['제목']}", key=result["링크"])
+                        key = f"select_{index_counter}"
+                        is_selected = st.checkbox(f"△{result['매체']} / {result['제목']}", key=key)
                         st.caption(result["날짜"])
                         if result["필터일치"]:
                             st.write(f"**일치 키워드:** {result['필터일치']}")
@@ -200,21 +202,21 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
 
                         if is_selected:
                             selected_articles.append(result)
+
+                        index_counter += 1
                         total += 1
                         status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
 
         progress_bar.empty()
         status_text.markdown(f"✅ 수집 완료: 총 **{total}건**")
         st.success(f"✅ 수집 완료: 총 {total}건")
-        
+
         if selected_articles:
             text_block = ""
             for row in selected_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 text_block += f"△{row['매체']} / {clean_title}\n- {row['본문']}\n\n"
-        
             st.code(text_block.strip(), language="markdown")
             st.caption("✅ 복사 버튼을 눌러 선택한 기사 내용을 복사하세요.")
         else:
             st.info("✅ 복사할 기사를 선택하세요.")
-
