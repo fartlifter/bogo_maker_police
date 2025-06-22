@@ -149,6 +149,8 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         "pub_dt": pub_dt
     }
 
+import streamlit.components.v1 as components
+
 if st.button("✅ [단독] 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
         status_text = st.empty()
@@ -189,12 +191,19 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # ✅ 제목: HTML block으로 출력해 줄바꿈되도록 처리
-                        st.markdown(
-                            f"<p style='white-space: normal; word-break: break-word; font-weight: bold;'>"
-                            f"△{result['매체']} / {result['제목']}</p>",
-                            unsafe_allow_html=True
-                        )
+                        # ✅ 제목 출력 (절대 잘리지 않도록 HTML 직접 출력)
+                        components.html(f"""
+                            <div style="
+                                font-size: 18px;
+                                font-weight: bold;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                word-break: break-word;
+                                padding-bottom: 0.2rem;
+                            ">
+                                △{result['매체']} / {result['제목']}
+                            </div>
+                        """, height=60)
 
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
@@ -213,9 +222,19 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             for row in all_articles:
                 clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
                 wrapped_title = f"△{row['매체']} / {clean_title}"
-                wrapped_title = re.sub(r"(.{60,80})\s", r"\1\n", wrapped_title)
                 text_block += f"{wrapped_title}\n- {row['본문']}\n\n"
 
-            # ✅ 복사용 텍스트: 줄바꿈 포함하여 표시
-            st.text_area("복사할 기사 모음", value=text_block.strip(), height=600)
+            # ✅ 복사용 텍스트 박스 (줄바꿈 유지 + 전체 표시)
+            components.html(f"""
+                <textarea style="
+                    width: 100%;
+                    height: 600px;
+                    font-family: monospace;
+                    font-size: 14px;
+                    padding: 12px;
+                    white-space: pre-wrap;
+                    overflow-wrap: break-word;
+                    box-sizing: border-box;
+                ">{text_block.strip()}</textarea>
+            """, height=620)
             st.caption("위 내용을 복사해서 사용하세요.")
