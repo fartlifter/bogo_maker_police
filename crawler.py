@@ -5,7 +5,7 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
 import re
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -181,7 +181,7 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             if not items:
                 break
 
-            with ProcessPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=10) as executor:
                 futures = [
                     executor.submit(fetch_and_filter, (item, start_dt, end_dt, selected_keywords, use_keyword_filter))
                     for item in items
