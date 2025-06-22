@@ -88,7 +88,7 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
     highlighted_body = body
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
-    highlighted_body = highlighted_body.replace("\n", "<br><br>")  # 빈 줄 처리
+    highlighted_body = highlighted_body.replace("\n", "<br><br>")
     media = extract_media_name(item.get("originallink", ""))
     return {
         "키워드": "[단독]",
@@ -102,7 +102,6 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         "pub_dt": pub_dt
     }
 
-# === 키워드 카테고리 정의 ===
 keyword_groups = {
     '시경': ['서울경찰청'],
     '본청': ['경찰청'],
@@ -147,7 +146,6 @@ with col2:
 
 group_labels = list(keyword_groups.keys())
 default_groups = ['시경', '종혜북']
-
 selected_groups = st.multiselect("📚 지역 그룹 선택", group_labels, default=default_groups)
 
 selected_keywords = []
@@ -196,8 +194,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        # 제목 출력: 줄바꿈 방지, 잘림 없이 전체 출력
-                        st.text(f"△{result['매체']}/{result['제목']}")
+                        # ✅ 제목도 본문처럼 표시 (줄바꿈/HTML 허용)
+                        st.markdown(f"<b>△{result['매체']}/{result['제목']}</b>", unsafe_allow_html=True)
                         st.caption(result["날짜"])
                         st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
@@ -213,7 +211,6 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
         if all_articles:
             text_block = ""
             for row in all_articles:
-                clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']}/{clean_title}\n-{row['본문']}\n\n"
+                text_block += f"△{row['매체']}/\n{row['제목']}\n- {row['본문']}\n\n"
             st.code(text_block.strip(), language="markdown")
             st.caption("위 내용을 복사해서 사용하세요.")
