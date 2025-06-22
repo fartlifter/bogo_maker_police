@@ -5,7 +5,7 @@ from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import time as t
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # === 인증 정보 ===
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
@@ -17,31 +17,21 @@ def parse_pubdate(pubdate_str):
     except:
         return None
 
-def extract_article_text(url):
+def extract_title_and_body(url):
     try:
         if "n.news.naver.com" not in url:
-            return None
+            return None, None
         html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
-        if html.status_code == 200:
-            soup = BeautifulSoup(html.text, "html.parser")
-            content_div = soup.find("div", id="newsct_article")
-            return content_div.get_text(separator="\n", strip=True) if content_div else None
+        if html.status_code != 200:
+            return None, None
+        soup = BeautifulSoup(html.text, "html.parser")
+        title_div = soup.find("div", class_="media_end_head_title")
+        content_div = soup.find("div", id="newsct_article")
+        title = title_div.get_text(strip=True) if title_div else None
+        body = content_div.get_text(separator="\n", strip=True) if content_div else None
+        return title, body
     except:
-        pass
-    return None
-
-def extract_true_title(url):
-    try:
-        if "n.news.naver.com" not in url:
-            return None
-        html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=5)
-        if html.status_code == 200:
-            soup = BeautifulSoup(html.text, "html.parser")
-            title_div = soup.find("div", class_="media_end_head_title")
-            return title_div.get_text(strip=True) if title_div else None
-    except:
-        pass
-    return None
+        return None, None
 
 def extract_media_name(url):
     try:
@@ -80,22 +70,18 @@ def safe_api_request(url, headers, params, max_retries=3):
             t.sleep(0.5)
     return res
 
-def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filter):
+def fetch_and_filter(item_data):
+    item, start_dt, end_dt, selected_keywords, use_keyword_filter = item_data
     link = item.get("link")
     if not link or "n.news.naver.com" not in link:
         return None
 
-    # ✅ 실제 기사 페이지에서 제목 추출
-    title = extract_true_title(link)
-    if not title or "[단독]" not in title:
+    title, body = extract_title_and_body(link)
+    if not title or "[단독]" not in title or not body:
         return None
 
     pub_dt = parse_pubdate(item.get("pubDate"))
     if not pub_dt or not (start_dt <= pub_dt <= end_dt):
-        return None
-
-    body = extract_article_text(link)
-    if not body:
         return None
 
     matched_keywords = []
@@ -107,8 +93,8 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
     highlighted_body = body
     for kw in matched_keywords:
         highlighted_body = highlighted_body.replace(kw, f"<mark>{kw}</mark>")
-    highlighted_body = highlighted_body.replace("\n", "<br><br>")  # 빈 줄 처리
-    media = extract_media_name(item.get("originallink", ""))
+    highlighted_body = highlighted_body.replace("\n", "<br><br>")
+    media = extract_media_name(link)
 
     return {
         "키워드": "[단독]",
@@ -122,15 +108,13 @@ def fetch_and_filter(item, start_dt, end_dt, selected_keywords, use_keyword_filt
         "pub_dt": pub_dt
     }
 
-# === 키워드 카테고리 정의 ===
+# === 키워드 카테고리 ===
 keyword_groups = {
     '시경': ['서울경찰청'],
     '본청': ['경찰청'],
-    '종혜북': [
-        '종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑',
+    '종혜북': ['종로', '종암', '성북', '고려대', '참여연대', '혜화', '동대문', '중랑',
         '성균관대', '한국외대', '서울시립대', '경희대', '경실련', '서울대병원',
-        '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'
-    ],
+        '노원', '강북', '도봉', '북부지법', '북부지검', '상계백병원', '국가인권위원회'],
     '마포중부': ['마포', '서대문', '서부', '은평', '서부지검', '서부지법', '연세대',
         '신촌세브란스병원', '군인권센터', '중부', '남대문', '용산', '동국대', '숙명여대', '순천향대병원'],
     '영등포관악': ['영등포', '양천', '구로', '강서', '남부지검', '남부지법', '여의도성모병원',
@@ -139,7 +123,7 @@ keyword_groups = {
         '강남세브란스병원', '광진', '성동', '동부지검', '동부지법', '한양대', '건국대', '세종대']
 }
 
-# === UI ===
+# === Streamlit UI ===
 st.title("📰 단독기사 수집기_경찰팀")
 st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다.")
 
@@ -159,7 +143,6 @@ with col2:
 
 group_labels = list(keyword_groups.keys())
 default_groups = ['시경', '종혜북']
-
 selected_groups = st.multiselect("📚 지역 그룹 선택", group_labels, default=default_groups)
 
 selected_keywords = []
@@ -197,9 +180,9 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
             if not items:
                 break
 
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ProcessPoolExecutor(max_workers=4) as executor:
                 futures = [
-                    executor.submit(fetch_and_filter, item, start_dt, end_dt, selected_keywords, use_keyword_filter)
+                    executor.submit(fetch_and_filter, (item, start_dt, end_dt, selected_keywords, use_keyword_filter))
                     for item in items
                 ]
                 for future in as_completed(futures):
@@ -208,9 +191,8 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                         seen_links.add(result["링크"])
                         all_articles.append(result)
 
-                        st.text(f"△{result['매체']} / {result['제목']}")
+                        st.markdown(f"△{result['매체']} / [{result['제목']}]({result['링크']})")
                         st.caption(result["날짜"])
-                        st.markdown(f"🔗 [원문 보기]({result['링크']})")
                         if result["필터일치"]:
                             st.write(f"**일치 키워드:** {result['필터일치']}")
                         st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
