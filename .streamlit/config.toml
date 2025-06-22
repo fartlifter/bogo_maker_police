@@ -1,5 +1,0 @@
-[server]
-headless = true
-
-[general]
-postinstallScript = "postinstall.sh"
