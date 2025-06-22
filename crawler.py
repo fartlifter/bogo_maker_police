@@ -11,6 +11,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 client_id = "R7Q2OeVNhj8wZtNNFBwL"
 client_secret = "49E810CBKY"
 
+# 세션 초기화
+if "articles" not in st.session_state:
+    st.session_state["articles"] = []
+
 def parse_pubdate(pubdate_str):
     try:
         return datetime.strptime(pubdate_str, "%a, %d %b %Y %H:%M:%S %z")
@@ -153,21 +157,13 @@ use_keyword_filter = st.checkbox("📎 키워드 포함 기사만 필터링", va
 
 if st.button("✅ [단독] 뉴스 수집 시작"):
     with st.spinner("뉴스 수집 중..."):
-        status_text = st.empty()
-        progress_bar = st.progress(0)
         headers = {
             "X-Naver-Client-Id": client_id,
             "X-Naver-Client-Secret": client_secret
         }
         seen_links = set()
         all_articles = []
-        selected_articles = []
-        total = 0
-        index_counter = 0
-
         for start_index in range(1, 1001, 100):
-            progress_bar.progress(min(start_index / 1000, 1.0))
-            status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
             params = {
                 "query": "[단독]",
                 "sort": "date",
@@ -192,31 +188,26 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
                     if result and result["링크"] not in seen_links:
                         seen_links.add(result["링크"])
                         all_articles.append(result)
+        st.session_state["articles"] = all_articles
+        st.success(f"✅ 수집 완료: 총 {len(all_articles)}건")
 
-                        key = f"select_{index_counter}"
-                        is_selected = st.checkbox(f"△{result['매체']} / {result['제목']}", key=key)
-                        st.caption(result["날짜"])
-                        if result["필터일치"]:
-                            st.write(f"**일치 키워드:** {result['필터일치']}")
-                        st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
+# === 기사 표시 및 체크박스 ===
+selected_articles = []
+for idx, result in enumerate(st.session_state["articles"]):
+    is_selected = st.checkbox(f"△{result['매체']} / {result['제목']}", key=f"chk_{idx}")
+    st.caption(result["날짜"])
+    if result["필터일치"]:
+        st.write(f"**일치 키워드:** {result['필터일치']}")
+    st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
 
-                        if is_selected:
-                            selected_articles.append(result)
+    if is_selected:
+        selected_articles.append(result)
 
-                        index_counter += 1
-                        total += 1
-                        status_text.markdown(f"🟡 수집 중... **{total}건 수집됨**")
-
-        progress_bar.empty()
-        status_text.markdown(f"✅ 수집 완료: 총 **{total}건**")
-        st.success(f"✅ 수집 완료: 총 {total}건")
-
-        if selected_articles:
-            text_block = ""
-            for row in selected_articles:
-                clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-                text_block += f"△{row['매체']} / {clean_title}\n- {row['본문']}\n\n"
-            st.code(text_block.strip(), language="markdown")
-            st.caption("✅ 복사 버튼을 눌러 선택한 기사 내용을 복사하세요.")
-        else:
-            st.info("✅ 복사할 기사를 선택하세요.")
+# === 복사 박스 ===
+if selected_articles:
+    text_block = ""
+    for row in selected_articles:
+        clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
+        text_block += f"△{row['매체']} / {clean_title}\n- {row['본문']}\n\n"
+    st.code(text_block.strip(), language="markdown")
+    st.caption("✅ 복사 버튼을 눌러 선택한 기사 내용을 복사하세요.")
