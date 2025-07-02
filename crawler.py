@@ -54,7 +54,7 @@ def extract_media_name(url):
             "imnews": "MBC", "jtbc": "JTBC", "ichannela": "채널A", "tvchosun": "TV조선",
             "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
             "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
-            "biz.chosun": "조선비즈", "fnnews": "파뉴", "etoday.co": "이투데이", "tf.co": "더팩트", 
+            "biz.chosun": "조선비즈", "fnnews": "파뉴", "etoday.co": "이투데이", "edaily.co": "이데일리", "tf.co": "더팩트", 
             "yonhapnewstv.co": "연뉴TV", "ytn.co": "YTN", "biz.heraldcorp": "헤경"
         }
         if composite_key in media_mapping:
