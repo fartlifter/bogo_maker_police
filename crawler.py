@@ -55,7 +55,7 @@ def extract_media_name(url):
             "mk": "매경", "sedaily": "서경", "hankyung": "한경", "news1": "뉴스1",
             "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
             "biz.chosun": "조선비즈", "fnnews": "파뉴", "etoday.co": "이투데이", "edaily.co": "이데일리", "tf.co": "더팩트", 
-            "yonhapnewstv.co": "연뉴TV", "ytn.co": "YTN", "biz.heraldcorp": "헤경"
+            "yonhapnewstv.co": "연뉴TV", "ytn.co": "YTN", "nocutnews.co": "노컷", "biz.heraldcorp": "헤경"
         }
         if composite_key in media_mapping:
             return media_mapping[composite_key]
@@ -134,7 +134,7 @@ keyword_groups = {
 
 # === Streamlit UI ===
 st.title("📰 단독기사 수집기_경찰팀")
-st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다. 선택한 기사만 최하단 복사용 박스에 표시됩니다. 업데이트: 250702")
+st.markdown("✅ [단독] 기사를 수집하고 선택한 키워드가 본문에 포함된 기사만 필터링합니다. 선택한 기사만 최하단 복사용 박스에 표시됩니다. 업데이트: 250703")
 
 now = datetime.now(ZoneInfo("Asia/Seoul"))
 today = now.date()
@@ -232,6 +232,6 @@ if selected_articles:
     text_block = ""
     for row in selected_articles:
         clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
-        text_block += f"△{row['매체']} / {clean_title}\n- {row['본문']}\n\n"
+        text_block += f"△{row['매체']}/{clean_title}\n-{row['본문']}\n\n"
     st.code(text_block.strip(), language="markdown")
     st.caption("✅ 복사 버튼을 눌러 선택한 기사 내용을 복사하세요.")
