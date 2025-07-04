@@ -232,7 +232,7 @@ for idx, result in enumerate(st.session_state["articles"]):
 
 # === 복사 박스 ===
 if selected_articles:
-    text_block = ""
+    text_block = "【타지】\n"
     for row in selected_articles:
         clean_title = re.sub(r"\[단독\]|\(단독\)|【단독】|ⓧ단독|^단독\s*[:-]?", "", row['제목']).strip()
         text_block += f"△{row['매체']}/{clean_title}\n-{row['본문']}\n\n"
