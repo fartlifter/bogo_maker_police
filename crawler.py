@@ -221,14 +221,14 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
 selected_articles = []
 for idx, result in enumerate(st.session_state["articles"]):
     with st.expander(f"△{result['매체']} / {result['제목']}", expanded=False):
-    is_selected = st.checkbox("이 기사 선택", key=f"chk_{idx}")
-    st.markdown(f"[🔗 원문 보기]({result['링크']})", unsafe_allow_html=True)
-    st.caption(result["날짜"])
-    if result["필터일치"]:
-        st.write(f"**일치 키워드:** {result['필터일치']}")
-    st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
-    if is_selected:
-        selected_articles.append(result)
+        is_selected = st.checkbox("이 기사 선택", key=f"chk_{idx}")
+        st.markdown(f"[🔗 원문 보기]({result['링크']})", unsafe_allow_html=True)
+        st.caption(result["날짜"])
+        if result["필터일치"]:
+            st.write(f"**일치 키워드:** {result['필터일치']}")
+        st.markdown(f"- {result['하이라이트']}", unsafe_allow_html=True)
+        if is_selected:
+            selected_articles.append(result)
 
 # === 복사 박스 ===
 if selected_articles:
