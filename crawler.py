@@ -56,7 +56,7 @@ def extract_media_name(url):
             "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
             "biz.chosun": "조선비즈", "fnnews": "파뉴", "etoday.co": "이투데이", "edaily.co": "이데일리", "tf.co": "더팩트", 
             "yonhapnewstv.co": "연뉴TV", "ytn.co": "YTN", "nocutnews.co": "노컷", "biz.heraldcorp": "헤경",
-            "sisajournal.com": "시사저널", "ohmynews.com": "오마이", "dailian.co": "데일리안", "ilyo.co": "일요신문", "sisain.co": "시사IN"
+            "sisajournal.com": "시사저널", "www.ohmynews": "오마이", "dailian.co": "데일리안", "ilyo.co": "일요신문", "sisain.co": "시사IN"
              
         }
         if composite_key in media_mapping:
