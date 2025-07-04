@@ -56,7 +56,8 @@ def extract_media_name(url):
             "newsis": "뉴시스", "yna": "연합", "mt": "머투", "weekly": "주간조선",
             "biz.chosun": "조선비즈", "fnnews": "파뉴", "etoday.co": "이투데이", "edaily.co": "이데일리", "tf.co": "더팩트", 
             "yonhapnewstv.co": "연뉴TV", "ytn.co": "YTN", "nocutnews.co": "노컷", "biz.heraldcorp": "헤경",
-            "sisajournal.com": "시사저널", "ilyo.co": "일요신문", "sisain.co": "시사IN"
+            "sisajournal.com": "시사저널", "ohmynews.com": "오마이", "dailian.co": "데일리안", "ilyo.co": "일요신문", "sisain.co": "시사IN"
+             
         }
         if composite_key in media_mapping:
             return media_mapping[composite_key]
@@ -219,8 +220,9 @@ if st.button("✅ [단독] 뉴스 수집 시작"):
 # === 기사 표시 및 체크박스 ===
 selected_articles = []
 for idx, result in enumerate(st.session_state["articles"]):
-    is_selected = st.checkbox(f"△{result['매체']} / {result['제목']}", key=f"chk_{idx}")
-    st.markdown(f"[🔗 원문 보기]({result['링크']})", unsafe_allow_html=True)  # ← 하이퍼링크 추가
+    with st.expander(f"△{result['매체']} / {result['제목']}", expanded=False):
+    is_selected = st.checkbox("이 기사 선택", key=f"chk_{idx}")
+    st.markdown(f"[🔗 원문 보기]({result['링크']})", unsafe_allow_html=True)
     st.caption(result["날짜"])
     if result["필터일치"]:
         st.write(f"**일치 키워드:** {result['필터일치']}")
